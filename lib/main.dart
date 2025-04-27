@@ -14,7 +14,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Grading Bot',
       debugShowCheckedModeBanner: false,
-      home: const HomePage(), // 👈 Set this as the start page
+      home: const SignInPage(), // 👈 Set this as the start page
     );
   }
 }
