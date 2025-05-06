@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'SignUp_Page.dart';
 import 'utils/colors.dart';
+import 'main_screen.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -92,7 +93,12 @@ class _SignInPageState extends State<SignInPage> {
                   width: double.infinity,
                   height: 48 * scaleFactor, // Dynamic button height
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(builder: (context) => const MainScreen()),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.secondaryColor,
                       shape: RoundedRectangleBorder(

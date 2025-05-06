@@ -5,6 +5,7 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
@@ -24,7 +25,8 @@ class HomePage extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: _buildBottomNav(),
+      
+      //bottomNavigationBar: _buildBottomNav(),
     );
   }
 
@@ -201,69 +203,69 @@ class HomePage extends StatelessWidget {
     );
   }
 
-    Widget _buildBottomNav() {
-    return Container(
-      height: 80,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, -2),
-          ),
-        ],
-      ),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              _buildNavItem(Icons.home, "Home", isSelected: true),
-              _buildNavItem(Icons.analytics, "Analytics"),
-              const SizedBox(width: 60), // Space for center button
-              _buildNavItem(Icons.manage_accounts, "Manage"),
-              _buildNavItem(Icons.person, "Profile"),
-            ],
-          ),
-          Positioned(
-            top: -0,
-            child: Container(
-              height: 60,
-              width: 60,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.blue,
-                border: Border.all(color: Colors.white, width: 4),
-              ),
-              child: Icon(Icons.qr_code_scanner, color: Colors.white, size: 30),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+  //   Widget _buildBottomNav() {
+  //   return Container(
+  //     height: 80,
+  //     decoration: BoxDecoration(
+  //       color: Colors.white,
+  //       borderRadius: BorderRadius.only(
+  //         topLeft: Radius.circular(20),
+  //         topRight: Radius.circular(20),
+  //       ),
+  //       boxShadow: [
+  //         BoxShadow(
+  //           color: Colors.black12,
+  //           blurRadius: 10,
+  //           offset: Offset(0, -2),
+  //         ),
+  //       ],
+  //     ),
+  //     child: Stack(
+  //       alignment: Alignment.center,
+  //       children: [
+  //         Row(
+  //           mainAxisAlignment: MainAxisAlignment.spaceAround,
+  //           children: [
+  //             _buildNavItem(Icons.home, "Home", isSelected: true),
+  //             _buildNavItem(Icons.analytics, "Analytics"),
+  //             const SizedBox(width: 60), // Space for center button
+  //             _buildNavItem(Icons.manage_accounts, "Manage"),
+  //             _buildNavItem(Icons.person, "Profile"),
+  //           ],
+  //         ),
+  //         Positioned(
+  //           top: -0,
+  //           child: Container(
+  //             height: 60,
+  //             width: 60,
+  //             decoration: BoxDecoration(
+  //               shape: BoxShape.circle,
+  //               color: Colors.blue,
+  //               border: Border.all(color: Colors.white, width: 4),
+  //             ),
+  //             child: Icon(Icons.qr_code_scanner, color: Colors.white, size: 30),
+  //           ),
+  //         ),
+  //       ],
+  //     ),
+  //   );
+  // }
 
-    Widget _buildNavItem(IconData icon, String label, {bool isSelected = false}) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: isSelected ? Colors.blue : Colors.grey),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isSelected ? Colors.blue : Colors.grey,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-          ),
-        ),
-      ],
-    );
-  }
+  //   Widget _buildNavItem(IconData icon, String label, {bool isSelected = false}) {
+  //   return Column(
+  //     mainAxisSize: MainAxisSize.min,
+  //     children: [
+  //       Icon(icon, color: isSelected ? Colors.blue : Colors.grey),
+  //       const SizedBox(height: 4),
+  //       Text(
+  //         label,
+  //         style: TextStyle(
+  //           fontSize: 12,
+  //           color: isSelected ? Colors.blue : Colors.grey,
+  //           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+  //         ),
+  //       ),
+  //     ],
+  //   );
+  // }
 }
