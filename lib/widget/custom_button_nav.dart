@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class CustomBottomNav extends StatelessWidget {
+class CustomBottomNav extends StatefulWidget {
   final int currentIndex;
   final Function(int) onTap;
 
@@ -9,6 +9,13 @@ class CustomBottomNav extends StatelessWidget {
     required this.currentIndex,
     required this.onTap,
   });
+
+  @override
+  _CustomBottomNavState createState() => _CustomBottomNavState();
+}
+
+class _CustomBottomNavState extends State<CustomBottomNav> {
+  bool _isPressed = false;
 
   @override
   Widget build(BuildContext context) {
@@ -46,10 +53,26 @@ class CustomBottomNav extends StatelessWidget {
           // Center QR Scanner Button
           Positioned(
             top: -30,
-            child: GestureDetector(
+            child: InkWell(
               onTap: () {
-                onTap(4); // QR scanner action
+                widget.onTap(4); // QR scanner action
               },
+              onTapDown: (_) {
+                setState(() {
+                  _isPressed = true; // Activate shadow when pressed
+                });
+              },
+              onTapUp: (_) {
+                setState(() {
+                  _isPressed = false; // Remove shadow when release
+                });
+              },
+              onTapCancel: () {
+                setState(() {
+                  _isPressed = false; // Remove shadow if canceled
+                });
+              },
+              borderRadius: BorderRadius.circular(30),
               child: Container(
                 height: 60,
                 width: 60,
@@ -57,13 +80,21 @@ class CustomBottomNav extends StatelessWidget {
                   color: Colors.blue,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 5),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 3),
-                    ),
-                  ],
+                  boxShadow: _isPressed
+                      ? [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 10,
+                            offset: Offset(0, 4),
+                          ),
+                        ]
+                      : const [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 6,
+                            offset: Offset(0, 3),
+                          ),
+                        ],
                 ),
                 child: const Center(
                   child: Icon(
@@ -82,7 +113,7 @@ class CustomBottomNav extends StatelessWidget {
 
   Widget _buildNavItem(IconData icon, String label, int index) {
     return GestureDetector(
-      onTap: () => onTap(index),
+      onTap: () => widget.onTap(index),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -90,7 +121,7 @@ class CustomBottomNav extends StatelessWidget {
           Icon(
             icon,
             size: 24,
-            color: currentIndex == index ? Colors.blue : Colors.grey,
+            color: widget.currentIndex == index ? Colors.blue : Colors.grey,
           ),
           const SizedBox(height: 4),
           Text(
@@ -98,7 +129,7 @@ class CustomBottomNav extends StatelessWidget {
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: currentIndex == index ? Colors.blue : Colors.grey,
+              color: widget.currentIndex == index ? Colors.blue : Colors.grey,
             ),
           ),
         ],

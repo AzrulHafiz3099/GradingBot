@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'utils/colors.dart'; // Make sure this file has secondaryColor defined
 import 'ClassPage/Class_Management.dart';
 import 'StudentPage/Student_Management.dart';
+import 'ExamPage/Exam_Management.dart';
+import 'ResultPage/Result_Management.dart';
 
 class ManagePage extends StatelessWidget {
   const ManagePage({super.key});
@@ -64,20 +66,37 @@ class ManagePage extends StatelessWidget {
               ),
               SizedBox(height: screenHeight * 0.02),
 
-              _buildManageCard(
-                title: 'Exam',
-                subtitle: 'Manage your exam',
-                imagePlaceholder: 'assets/exam.png',
-                screenWidth: screenWidth,
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ExamManagementPage()),
+                  );
+                },
+                child: _buildManageCard(
+                  title: 'Exam',
+                  subtitle: 'Manage your exam',
+                  imagePlaceholder: 'assets/exam.png',
+                  screenWidth: screenWidth,
+                ),
               ),
               SizedBox(height: screenHeight * 0.02),
 
-              _buildManageCard(
-                title: 'Result',
-                subtitle: 'Manage students’ result',
-                imagePlaceholder: 'assets/result.png',
-                screenWidth: screenWidth,
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ResultManagementPage()),
+                  );
+                },
+                child: _buildManageCard(
+                  title: 'Result',
+                  subtitle: 'Manage students’ result',
+                  imagePlaceholder: 'assets/result.png',
+                  screenWidth: screenWidth,
+                ),
               ),
+              SizedBox(height: screenHeight * 0.02),
             ],
           ),
         ),
