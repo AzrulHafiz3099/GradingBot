@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '/utils/colors.dart';
 import '/widget/class_picker.dart';
 import 'ExamPage.dart';
+//import 'Update_Exam.dart';
 
 class ExamManagementPage extends StatefulWidget {
   const ExamManagementPage({super.key});
@@ -98,14 +99,14 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
             const Row(
               children: [
                 Expanded(
-                  flex: 6,
+                  flex: 7,
                   child: Text(
                     'Exam Name',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
-                  flex: 4,
+                  flex: 3,
                   child: Center(
                     child: Text(
                       'Number of Question',
@@ -143,11 +144,11 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
                                 child: Row(
                                   children: [
                                     Expanded(
-                                      flex: 6,
+                                      flex: 7,
                                       child: Text(exam['name'] ?? ''),
                                     ),
                                     Expanded(
-                                      flex: 4,
+                                      flex: 3,
                                       child: Center(
                                         child: Text(exam['number'] ?? ''),
                                       ),

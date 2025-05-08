@@ -1,22 +1,23 @@
 import 'package:flutter/material.dart';
 
-typedef OnClassSelected = void Function(String selectedClass);
+typedef OnStudentSelected = void Function(String selectedStudent);
 
-final List<String> classes = [
-  'Choose Class',
-  'BITP2226 2/2024',
-  'BITP1234 2/2024',
-  'BITP2223 2/2024',
-  'BITS2345 1/2024',
-  'BITP2134 2/2024',
-  'BITP9999 2/2024',
-  'BITP8888 1/2023',
+final List<String> students = [
+  'Choose Student',
+  'AZRUL HAFIZ BIN ABDULLAH',
+  'MOHAMAD IMAN AKMAL BIN ISMAIL',
+  'AMIR HAMZAH BIN MOHD ZAMRI',
+  'NUR AMALINA AQILAH BINTI MOHD NAPI',
+  'STUDENT 5',
+  'STUDENT 6',
+  'STUDENT 7',
+  'STUDENT 8',
 ];
 
-Future<void> showClassPicker({
+Future<void> showStudentPicker({
   required BuildContext context,
-  required String selectedClass,
-  required OnClassSelected onSelected,
+  required String selectedStudent,
+  required OnStudentSelected onSelected,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -36,7 +37,7 @@ Future<void> showClassPicker({
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Choose Class',
+                  'Choose Student',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
@@ -50,19 +51,19 @@ Future<void> showClassPicker({
             SizedBox(
               height: 300, // Match exam picker height
               child: ListView.builder(
-                itemCount: classes.length,
+                itemCount: students.length,
                 itemBuilder: (context, index) {
-                  final cls = classes[index];
+                  final student = students[index];
                   return ListTile(
                     title: Text(
-                      cls,
+                      student,
                       style: TextStyle(
-                        color: cls == selectedClass ? Colors.blue : Colors.black,
-                        fontWeight: cls == selectedClass ? FontWeight.bold : null,
+                        color: student == selectedStudent ? Colors.blue : Colors.black,
+                        fontWeight: student == selectedStudent ? FontWeight.bold : null,
                       ),
                     ),
                     onTap: () {
-                      onSelected(cls);
+                      onSelected(student);
                       Navigator.pop(context);
                     },
                   );

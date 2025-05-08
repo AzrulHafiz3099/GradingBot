@@ -97,7 +97,7 @@ class AddExamPage extends StatelessWidget {
                 ),
                 Expanded(
                   child: Text(
-                    'Total Keywords',
+                    'Total Scheme',
                     style: TextStyle(fontWeight: FontWeight.bold),
                     textAlign: TextAlign.center, // Centering "Total Keywords"
                   ),

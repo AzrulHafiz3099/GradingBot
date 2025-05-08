@@ -1,22 +1,27 @@
 import 'package:flutter/material.dart';
 
-typedef OnClassSelected = void Function(String selectedClass);
+typedef OnExamSelected = void Function(String selectedExam);
 
-final List<String> classes = [
-  'Choose Class',
-  'BITP2226 2/2024',
-  'BITP1234 2/2024',
-  'BITP2223 2/2024',
-  'BITS2345 1/2024',
-  'BITP2134 2/2024',
-  'BITP9999 2/2024',
-  'BITP8888 1/2023',
+final List<String> exams = [
+  'Choose Exam',
+  'FINAL 2/2024',
+  'MIDTERM 2/2024',
+  'QUIZ 1 2/2024',
+  'QUIZ 2 2/2024',
+  'TEST 1 2/2024',
+  'TEST 2 2/2024',
+  'PRACTICAL 2/2024',
+  'FINAL 1/2024',
+  'MIDTERM 1/2024',
+  'QUIZ 1 1/2024',
+  'QUIZ 2 1/2024',
+  // Add more items if needed
 ];
 
-Future<void> showClassPicker({
+Future<void> showExamPicker({
   required BuildContext context,
-  required String selectedClass,
-  required OnClassSelected onSelected,
+  required String selectedExam,
+  required OnExamSelected onSelected,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -36,7 +41,7 @@ Future<void> showClassPicker({
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
-                  'Choose Class',
+                  'Choose Exam',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                 ),
                 const Spacer(),
@@ -48,21 +53,22 @@ Future<void> showClassPicker({
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 300, // Match exam picker height
+              height: 300, // adjust this value as needed
               child: ListView.builder(
-                itemCount: classes.length,
+                shrinkWrap: true,
+                itemCount: exams.length,
                 itemBuilder: (context, index) {
-                  final cls = classes[index];
+                  final exam = exams[index];
                   return ListTile(
                     title: Text(
-                      cls,
+                      exam,
                       style: TextStyle(
-                        color: cls == selectedClass ? Colors.blue : Colors.black,
-                        fontWeight: cls == selectedClass ? FontWeight.bold : null,
+                        color: exam == selectedExam ? Colors.blue : Colors.black,
+                        fontWeight: exam == selectedExam ? FontWeight.bold : null,
                       ),
                     ),
                     onTap: () {
-                      onSelected(cls);
+                      onSelected(exam);
                       Navigator.pop(context);
                     },
                   );

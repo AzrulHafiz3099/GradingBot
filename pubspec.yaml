@@ -42,10 +42,7 @@ dev_dependencies:
   flutter_launcher_icons: ^0.9.2  # Add this line for app icons
   flutter_lints: ^5.0.0 
 
-flutter_icons:
-  android: true  # Enable for Android
-  ios: true      # Enable for iOS
-  image_path: "assets/app_icon.png"  # Specify the path to your app icon image
+  dotted_border: ^2.0.0
 
 
   # The "flutter_lints" package below contains a set of recommended lints to

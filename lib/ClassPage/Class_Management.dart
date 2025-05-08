@@ -45,7 +45,7 @@ class ClassManagementPage extends StatelessWidget {
             const Row(
               children: [
                 Expanded(
-                  flex: 4,
+                  flex: 5,
                   child: Text(
                     'Class Name',
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -59,7 +59,7 @@ class ClassManagementPage extends StatelessWidget {
                   ),
                 ),
                 Expanded(
-                  flex: 3,
+                  flex: 2,
                   child: Text(
                     'Session / Year',
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -94,7 +94,7 @@ class ClassManagementPage extends StatelessWidget {
                         Row(
                           children: [
                             Expanded(
-                              flex: 4,
+                              flex: 5,
                               child: Text(classItem['className']!),
                             ),
                             Expanded(
@@ -102,7 +102,7 @@ class ClassManagementPage extends StatelessWidget {
                               child: Text(classItem['classCode']!),
                             ),
                             Expanded(
-                              flex: 3,
+                              flex: 2,
                               child: Text(
                                   "${classItem['session']} / ${classItem['year']}"),
                             ),

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '/SubmissionPage/Submission.dart';
+import '/utils/colors.dart';
 
 class CustomBottomNav extends StatefulWidget {
   final int currentIndex;
@@ -22,7 +24,7 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
     return Container(
       height: 70,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: const Color.fromARGB(255, 255, 255, 255),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
@@ -42,20 +44,26 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildNavItem(Icons.home_outlined, "Home", 0),
-              _buildNavItem(Icons.analytics_outlined, "Analytics", 1),
-              const SizedBox(width: 60), // space for QR button
-              _buildNavItem(Icons.manage_accounts_outlined, "Manage", 2),
-              _buildNavItem(Icons.person_outline, "Profile", 3),
+              _buildNavItem(Icons.home_outlined, 0),
+              _buildNavItem(Icons.analytics_outlined, 1),
+              const SizedBox(width: 60),
+              _buildNavItem(Icons.manage_accounts_outlined, 2),
+              _buildNavItem(Icons.settings_outlined, 3),
             ],
           ),
 
+          // Center QR Scanner Button
           // Center QR Scanner Button
           Positioned(
             top: -30,
             child: InkWell(
               onTap: () {
-                widget.onTap(4); // QR scanner action
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const SubmissionPage(),
+                  ),
+                );
               },
               onTapDown: (_) {
                 setState(() {
@@ -80,21 +88,22 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
                   color: Colors.blue,
                   shape: BoxShape.circle,
                   border: Border.all(color: Colors.white, width: 5),
-                  boxShadow: _isPressed
-                      ? [
-                          BoxShadow(
-                            color: Colors.black26,
-                            blurRadius: 10,
-                            offset: Offset(0, 4),
-                          ),
-                        ]
-                      : const [
-                          BoxShadow(
-                            color: Colors.black12,
-                            blurRadius: 6,
-                            offset: Offset(0, 3),
-                          ),
-                        ],
+                  boxShadow:
+                      _isPressed
+                          ? [
+                            BoxShadow(
+                              color: Colors.black26,
+                              blurRadius: 10,
+                              offset: Offset(0, 4),
+                            ),
+                          ]
+                          : const [
+                            BoxShadow(
+                              color: Colors.black12,
+                              blurRadius: 6,
+                              offset: Offset(0, 3),
+                            ),
+                          ],
                 ),
                 child: const Center(
                   child: Icon(
@@ -111,28 +120,13 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
     );
   }
 
-  Widget _buildNavItem(IconData icon, String label, int index) {
+  Widget _buildNavItem(IconData icon, int index) {
     return GestureDetector(
       onTap: () => widget.onTap(index),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 24,
-            color: widget.currentIndex == index ? Colors.blue : Colors.grey,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: widget.currentIndex == index ? Colors.blue : Colors.grey,
-            ),
-          ),
-        ],
+      child: Icon(
+        icon,
+        size: 28,
+        color: widget.currentIndex == index ? Colors.blue : Colors.grey,
       ),
     );
   }
