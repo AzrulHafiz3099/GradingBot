@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
-import 'SignIn_Page.dart'; // Make sure the file is in lib/
+import 'SignIn_Page.dart';
+import 'services/mongo_service.dart'; // Add this import
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized(); // Required before async operations
+  await MongoService.connect(); // Connect to MongoDB before launching the app
   runApp(const MyApp());
 }
 
@@ -12,12 +15,12 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       theme: ThemeData(
-      fontFamily: 'Poppins',
-      textTheme: ThemeData.light().textTheme.apply(fontFamily: 'Poppins'),
-    ),
+        fontFamily: 'Poppins',
+        textTheme: ThemeData.light().textTheme.apply(fontFamily: 'Poppins'),
+      ),
       title: 'Grading Bot',
       debugShowCheckedModeBanner: false,
-      home: const SignInPage(), // 👈 Set this as the start page
+      home: const SignInPage(),
     );
   }
 }
