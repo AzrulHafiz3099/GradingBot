@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'SignIn_Page.dart';
-import 'services/mongo_service.dart'; // Add this import
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized(); // Required before async operations
-  await MongoService.connect(); // Connect to MongoDB before launching the app
+void main() {
   runApp(const MyApp());
 }
 

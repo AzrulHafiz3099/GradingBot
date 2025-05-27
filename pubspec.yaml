@@ -28,6 +28,14 @@ environment:
 # the latest version available on pub.dev. To see which dependencies have newer
 # versions available, run `flutter pub outdated`.
 dependencies:
+
+  mongo_dart: ^0.10.0 # Or latest version
+  shelf: ^1.4.0
+  shelf_router: ^1.1.4
+  dotenv: ^4.0.1
+  http: ^0.13.5
+  flutter_secure_storage: ^8.0.0
+
   flutter:
     sdk: flutter
 
@@ -43,8 +51,6 @@ dev_dependencies:
   flutter_lints: ^5.0.0 
 
   dotted_border: ^2.0.0
-
-  mongo_dart: ^0.10.0 # Or latest version
 
 
   # The "flutter_lints" package below contains a set of recommended lints to

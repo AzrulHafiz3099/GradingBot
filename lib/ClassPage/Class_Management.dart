@@ -1,20 +1,100 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'Add_Class.dart';
 import 'Update_Class.dart';
 import '/utils/colors.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '/utils/env.dart'; // contains Env.baseUrl
 
-class ClassManagementPage extends StatelessWidget {
+class ClassManagementPage extends StatefulWidget {
   const ClassManagementPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final List<Map<String, String>> classes = List.generate(4, (index) => {
-          'className': 'Software Requirement and Design',
-          'classCode': 'BITP2223',
-          'session': '1',
-          'year': '2024',
-        });
+  State<ClassManagementPage> createState() => _ClassManagementPageState();
+}
 
+class _ClassManagementPageState extends State<ClassManagementPage> {
+  final secureStorage = const FlutterSecureStorage();
+  List<Map<String, dynamic>> classes = [];
+  bool isLoading = true;
+  String? errorMessage;
+  String? lecturerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLecturerId();
+  }
+
+  Future<void> _loadLecturerId() async {
+    String? id = await secureStorage.read(key: 'lecturer_id');
+    setState(() {
+      lecturerId = id;
+    });
+    print('Lecturer ID from secure storage: $lecturerId');
+    if (id != null) {
+      fetchClasses(id);
+    } else {
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Lecturer ID not found in secure storage.';
+      });
+    }
+  }
+
+  Future<void> fetchClasses(String lecturerId) async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('${Env.classApi}/classes?lecturer_id=$lecturerId'),
+      );
+
+      print(
+        '[DEBUG] API URL: ${Env.classApi}/classes?lecturer_id=$lecturerId',
+      ); // <-- added
+      print('[DEBUG] Response Status: ${response.statusCode}'); // <-- added
+      print('[DEBUG] Response Body: ${response.body}'); // <-- added
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['success'] == true) {
+          print('[DEBUG] Classes fetched: ${data['data']}'); // <-- added
+
+          setState(() {
+            classes = List<Map<String, dynamic>>.from(data['data']);
+          });
+        } else {
+          print('[DEBUG] API Error Message: ${data['message']}'); // <-- added
+          setState(() {
+            errorMessage = data['message'] ?? 'Failed to fetch classes';
+          });
+        }
+      } else {
+        print('[DEBUG] Server Error Code: ${response.statusCode}'); // <-- added
+        setState(() {
+          errorMessage = 'Server Error: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      print('[DEBUG] Exception: $e'); // <-- added
+      setState(() {
+        errorMessage = 'Error: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -30,7 +110,7 @@ class ClassManagementPage extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF2BA8FF),
+            color: AppColors.secondaryColor,
           ),
         ),
       ),
@@ -71,49 +151,69 @@ class ClassManagementPage extends StatelessWidget {
 
             // Table Content
             Expanded(
-              child: ListView.builder(
-                itemCount: classes.length,
-                itemBuilder: (context, index) {
-                  final classItem = classes[index];
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const UpdateClassPage(
-                            className: 'Software Requirement and Design',
-                            classCode: 'BITP2223',
-                            session: '1',
-                            year: '2024',
-                          ),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 5,
-                              child: Text(classItem['className']!),
+              child:
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : errorMessage != null
+                      ? Center(child: Text(errorMessage!))
+                      : ListView.builder(
+                        itemCount: classes.length,
+                        itemBuilder: (context, index) {
+                          final classItem = classes[index];
+                          return InkWell(
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => UpdateClassPage(
+                                        classId: classItem['class_id'] ?? '',
+                                        className:
+                                            classItem['class_name'] ?? '',
+                                        classCode:
+                                            classItem['class_code'] ?? '',
+                                        session: classItem['session'] ?? '',
+                                        year: classItem['year'] ?? '',
+                                      ),
+                                ),
+                              );
+
+                              // If update or delete was successful, refresh the classes list
+                              if (result == true && lecturerId != null) {
+                                await fetchClasses(lecturerId!);
+                              }
+                            },
+
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 5,
+                                      child: Text(
+                                        classItem['class_name'] ?? '',
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(
+                                        classItem['class_code'] ?? '',
+                                      ),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Text(
+                                        "${classItem['session']} / ${classItem['year']}",
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(),
+                              ],
                             ),
-                            Expanded(
-                              flex: 3,
-                              child: Text(classItem['classCode']!),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Text(
-                                  "${classItem['session']} / ${classItem['year']}"),
-                            ),
-                          ],
-                        ),
-                        const Divider(),
-                      ],
-                    ),
-                  );
-                },
-              ),
+                          );
+                        },
+                      ),
             ),
 
             const SizedBox(height: 12),
@@ -123,16 +223,22 @@ class ClassManagementPage extends StatelessWidget {
               width: double.infinity,
               height: 45,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
+                onPressed: () async {
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const AddClassPage(),
                     ),
                   );
+
+                  if (result == true && lecturerId != null) {
+                    fetchClasses(
+                      lecturerId!,
+                    ); // <-- refresh class list if AddClassPage returns true
+                  }
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2BA8FF),
+                  backgroundColor: AppColors.secondaryColor,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

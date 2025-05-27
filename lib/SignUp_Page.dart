@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'SignIn_Page.dart';
 import 'utils/colors.dart';
+import 'utils/env.dart'; // Use your centralized env config
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -11,76 +14,169 @@ class SignUpPage extends StatefulWidget {
 
 class _SignUpPageState extends State<SignUpPage> {
   bool _obscurePassword = true;
+  bool _isLoading = false;
+
+  
+
+
+  // Controllers to get user input
+  final TextEditingController _fullNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _institutionController = TextEditingController();
+
+  @override
+  void dispose() {
+    _fullNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _phoneController.dispose();
+    _institutionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _handleSignUp() async {
+    final fullName = _fullNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final phone = _phoneController.text.trim();
+    final institution = _institutionController.text.trim();
+
+    bool isValidEmail(String email) {
+  // Basic email regex pattern
+  final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+  return emailRegex.hasMatch(email);
+}
+
+    if (fullName.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        phone.isEmpty ||
+        institution.isEmpty) {
+      _showMessage('Please fill all fields');
+      return;
+    }
+
+    if (!isValidEmail(email)) {
+    _showMessage('Please enter a valid email address');
+    return;
+  }
+
+    setState(() => _isLoading = true);
+
+    // Add this print to see the JSON body
+  print(jsonEncode({
+    'Lecturer_Name': fullName,
+    'Email': email,
+    'Password': password,
+    'Phone_Number': phone,
+    'Institution_Name': institution,
+  }));
+
+    try {
+      final url = Uri.parse('${Env.baseUrl}/register');
+
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'Lecturer_Name': fullName,
+          'Email': email,
+          'Password': password,
+          'Phone_Number': phone,
+          'Institution_Name': institution,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+
+        if (data['success'] == true) {
+          _showMessage('Registration successful! Please sign in.');
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const SignInPage()),
+          );
+        } else {
+          _showMessage(data['message'] ?? 'Registration failed');
+        }
+      } else {
+        _showMessage('Server error: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showMessage('Network error: $e');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showMessage(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Get screen size
     double screenWidth = MediaQuery.of(context).size.width;
     double screenHeight = MediaQuery.of(context).size.height;
-
-    // Define a scaling factor based on the screen width
-    double scaleFactor = screenWidth / 375; // 375 is a common width for mobile screens
+    double scaleFactor = screenWidth / 375;
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: EdgeInsets.symmetric(
-            horizontal: screenWidth * 0.08, // 8% padding on each side
-            vertical: screenHeight * 0.05, // 5% padding vertically
+            horizontal: screenWidth * 0.08,
+            vertical: screenHeight * 0.05,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Optional: Top-right circle graphic
               Align(
                 alignment: Alignment.topRight,
                 child: Image.asset(
-                  'assets/top_circle.jpeg', // Replace if needed
-                  height: screenHeight * 0.2, // 20% of screen height
+                  'assets/top_circle.jpeg',
+                  height: screenHeight * 0.2,
                 ),
               ),
               const SizedBox(height: 10),
-
-              // Title
               Text(
                 'Sign Up',
                 style: TextStyle(
-                  fontSize: 28 * scaleFactor, // Adjust font size based on screen width
+                  fontSize: 28 * scaleFactor,
                   fontWeight: FontWeight.bold,
                   color: AppColors.primaryColor,
                 ),
               ),
-
               const SizedBox(height: 30),
 
-              // Full Name
               _buildTextField(
+                controller: _fullNameController,
                 hint: 'Full Name',
                 icon: Icons.person,
-                screenWidth: screenWidth,
+                scaleFactor: scaleFactor,
               ),
-
               const SizedBox(height: 12),
 
-              // Email
               _buildTextField(
+                controller: _emailController,
                 hint: 'Email',
                 icon: Icons.email,
-                screenWidth: screenWidth,
+                scaleFactor: scaleFactor,
               ),
-
               const SizedBox(height: 12),
 
-              // Password
               TextField(
+                controller: _passwordController,
                 obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   hintText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                     ),
                     onPressed: () {
                       setState(() {
@@ -93,53 +189,55 @@ class _SignUpPageState extends State<SignUpPage> {
                   ),
                 ),
               ),
-
               const SizedBox(height: 12),
 
-              // Phone Number
               _buildTextField(
+                controller: _phoneController,
                 hint: 'Phone Number',
                 icon: Icons.phone,
-                screenWidth: screenWidth,
+                scaleFactor: scaleFactor,
               ),
-
               const SizedBox(height: 12),
 
-              // Institution Name
               _buildTextField(
+                controller: _institutionController,
                 hint: 'Institution Name',
                 icon: Icons.apartment,
-                screenWidth: screenWidth,
+                scaleFactor: scaleFactor,
               ),
-
               const SizedBox(height: 24),
 
-              // Sign Up Button
               SizedBox(
                 width: double.infinity,
-                height: 48 * scaleFactor, // Button height based on screen height
+                height: 48 * scaleFactor,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: _isLoading ? null : _handleSignUp,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.secondaryColor,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12 * scaleFactor),
                     ),
                   ),
-                  child: Text(
-                    'Sign Up',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16 * scaleFactor, // Button text size based on screen width
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  child:
+                      _isLoading
+                          ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
+                          )
+                          : Text(
+                            'Sign Up',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16 * scaleFactor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                 ),
               ),
 
               const SizedBox(height: 24),
 
-              // Bottom Text
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -148,7 +246,9 @@ class _SignUpPageState extends State<SignUpPage> {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(builder: (context) => const SignInPage()),
+                        MaterialPageRoute(
+                          builder: (context) => const SignInPage(),
+                        ),
                       );
                     },
                     child: const Text(
@@ -169,16 +269,18 @@ class _SignUpPageState extends State<SignUpPage> {
   }
 
   Widget _buildTextField({
+    required TextEditingController controller,
     required String hint,
     required IconData icon,
-    required double screenWidth,
+    required double scaleFactor,
   }) {
     return TextField(
+      controller: controller,
       decoration: InputDecoration(
         hintText: hint,
         prefixIcon: Icon(icon),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(12 * scaleFactor),
         ),
       ),
     );

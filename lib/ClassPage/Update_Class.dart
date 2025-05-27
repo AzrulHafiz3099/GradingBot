@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '/utils/colors.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '/utils/env.dart';
 
-class UpdateClassPage extends StatelessWidget {
+class UpdateClassPage extends StatefulWidget {
+  final String classId;
   final String className;
   final String classCode;
   final String session;
@@ -9,21 +13,128 @@ class UpdateClassPage extends StatelessWidget {
 
   const UpdateClassPage({
     super.key,
+    required this.classId,
     required this.className,
     required this.classCode,
     required this.session,
     required this.year,
   });
 
+  @override
+  State<UpdateClassPage> createState() => _UpdateClassPageState();
+}
+
+class _UpdateClassPageState extends State<UpdateClassPage> {
   static const Color secondaryColor = Color(0xFF1DA1FA);
+
+  late TextEditingController nameController;
+  late TextEditingController codeController;
+  late TextEditingController sessionController;
+  late TextEditingController yearController;
+
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    nameController = TextEditingController(text: widget.className);
+    codeController = TextEditingController(text: widget.classCode);
+    sessionController = TextEditingController(text: widget.session);
+    yearController = TextEditingController(text: widget.year);
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    codeController.dispose();
+    sessionController.dispose();
+    yearController.dispose();
+    super.dispose();
+  }
+
+  Future<void> updateClass() async {
+    setState(() => isLoading = true);
+
+    final url = Uri.parse('${Env.classApi}/classes/${widget.classId}');
+    final body = {
+      "class_name": nameController.text.trim(),
+      "class_code": codeController.text.trim(),
+      "session": sessionController.text.trim(),
+      "year": yearController.text.trim(),
+    };
+
+    try {
+      final response = await http.put(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode(body),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        Navigator.pop(context, true); // Return success to previous screen
+      } else {
+        _showError(data['message'] ?? 'Failed to update class');
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> deleteClass() async {
+    setState(() => isLoading = true);
+
+    final url = Uri.parse('${Env.classApi}/classes/${widget.classId}');
+
+    try {
+      final response = await http.delete(url);
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['success'] == true) {
+        Navigator.pop(context, true); // Return success to previous screen
+      } else {
+        _showError(data['message'] ?? 'Failed to delete class');
+      }
+    } catch (e) {
+      _showError('Error: $e');
+    } finally {
+      setState(() => isLoading = false);
+    }
+  }
+
+  void _showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
+  void _confirmDeleteDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Delete'),
+        content: const Text('Are you sure you want to delete this class?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              deleteClass();
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final TextEditingController nameController = TextEditingController(text: className);
-    final TextEditingController codeController = TextEditingController(text: classCode);
-    final TextEditingController sessionController = TextEditingController(text: session);
-    final TextEditingController yearController = TextEditingController(text: year);
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -88,16 +199,14 @@ class UpdateClassPage extends StatelessWidget {
             const SizedBox(height: 24),
             Center(
               child: TextButton(
-                onPressed: () {
-                  // Implement delete logic here
-                },
+                onPressed: isLoading ? null : _confirmDeleteDialog,
                 child: const Text(
                   'Delete Class',
                   style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500),
                 ),
               ),
             ),
-            const SizedBox(height: 100), // Space above the bottom button
+            const SizedBox(height: 100),
           ],
         ),
       ),
@@ -111,10 +220,10 @@ class UpdateClassPage extends StatelessWidget {
               backgroundColor: secondaryColor,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () {
-              // Implement update logic here
-            },
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+            onPressed: isLoading ? null : updateClass,
+            child: isLoading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text('Confirm', style: TextStyle(color: Colors.white)),
           ),
         ),
       ),

@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'SignUp_Page.dart';
 import 'utils/colors.dart';
 import 'main_screen.dart';
-import 'services/mongo_service.dart';  // Import your MongoService
+// import 'services/mongo_service.dart';  // Removed mongo_service import
+import 'services/connection.dart'; // <-- Use your connection test function
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '/utils/env.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -12,10 +17,31 @@ class SignInPage extends StatefulWidget {
 }
 
 class _SignInPageState extends State<SignInPage> {
+  final FlutterSecureStorage secureStorage = FlutterSecureStorage();
   final TextEditingController _emailOrIdController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
+  
+  bool? _isConnected; // null = loading, true = connected, false = disconnected
+
+  @override
+  void initState() {
+    super.initState();
+    _checkConnection();
+  }
+
+  Future<void> _checkConnection() async {
+  try {
+    await testConnection();
+    setState(() => _isConnected = true);
+    print('✅ Connection to backend succeeded.');
+  } catch (e) {
+    setState(() => _isConnected = false);
+    print('❌ Connection to backend failed: $e');
+  }
+}
+
 
   @override
   void dispose() {
@@ -25,41 +51,63 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<void> _handleSignIn() async {
-    final emailOrId = _emailOrIdController.text.trim();
-    final password = _passwordController.text.trim();
+  final emailOrId = _emailOrIdController.text.trim();
+  final password = _passwordController.text.trim();
 
-    if (emailOrId.isEmpty || password.isEmpty) {
-      _showMessage('Please enter your Email/Username and Password');
-      return;
-    }
+  if (emailOrId.isEmpty || password.isEmpty) {
+    _showMessage('Please enter your Email/Username and Password');
+    return;
+  }
 
-    setState(() => _isLoading = true);
+  if (_isConnected != true) {
+    _showMessage('Not connected to backend. Please try again later.');
+    return;
+  }
 
-    try {
-      // Make sure DB is connected
-      if (MongoService.db == null || !MongoService.db.isConnected) {
-        await MongoService.connect();
-      }
+  setState(() => _isLoading = true);
 
-      final user = await MongoService.login(emailOrId, password);
+  try {
+    final url = Uri.parse('${Env.baseUrl}/login');
 
-      setState(() => _isLoading = false);
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'emailOrId': emailOrId,
+        'password': password,
+      }),
+    );
 
-      if (user != null) {
-        // Successful login: navigate to MainScreen
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print('Response from backend: $data');
+
+      if (data['success'] == true) {
+        // Save lecturer_id securely
+        if (data.containsKey('lecturer_id')) {
+          await secureStorage.write(key: 'lecturer_id', value: data['lecturer_id']);
+        }
+
+        setState(() => _isLoading = false);
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const MainScreen()),
         );
       } else {
-        _showMessage('Invalid Email/Username or Password');
+        setState(() => _isLoading = false);
+        _showMessage(data['message'] ?? 'Invalid Email/Username or Password');
       }
-    } catch (e) {
+    } else {
       setState(() => _isLoading = false);
-      _showMessage('Error signing in. Please try again.');
-      print('SignIn error: $e');
+      _showMessage('Server error: ${response.statusCode}');
     }
+  } catch (e) {
+    setState(() => _isLoading = false);
+    _showMessage('Network error: $e');
+    print('SignIn error: $e');
   }
+}
+
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -72,6 +120,26 @@ class _SignInPageState extends State<SignInPage> {
     double screenWidth = MediaQuery.of(context).size.width;
     double scaleFactor = screenWidth / 375;
 
+    if (_isConnected == null) {
+      // still checking connection
+      return Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_isConnected == false) {
+      // not connected
+      return Scaffold(
+        body: Center(
+          child: Text(
+            'Not connected to the backend.',
+            style: TextStyle(fontSize: 18 * scaleFactor, color: Colors.red),
+          ),
+        ),
+      );
+    }
+
+    // connected, show sign in form
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(

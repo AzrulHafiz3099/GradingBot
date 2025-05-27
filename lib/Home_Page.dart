@@ -3,9 +3,33 @@ import 'ClassPage/Class_Management.dart';
 import 'StudentPage/Student_Management.dart';
 import 'ExamPage/Exam_Management.dart';
 import 'ResultPage/Result_Management.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-class HomePage extends StatelessWidget {
+
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
+  @override
+  State<HomePage> createState() => _HomePageState();
+}
+
+class _HomePageState extends State<HomePage> {
+  final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
+  String? lecturerId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLecturerId();
+  }
+
+  Future<void> _loadLecturerId() async {
+    String? id = await secureStorage.read(key: 'lecturer_id');
+    setState(() {
+      lecturerId = id;
+    });
+    print('Lecturer ID from secure storage: $lecturerId');
+  }
 
   @override
   Widget build(BuildContext context) {
