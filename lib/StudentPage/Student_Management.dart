@@ -3,6 +3,10 @@ import '/utils/colors.dart';
 import 'Update_Student.dart';
 import 'Add_Student.dart';
 import '/widget/class_picker.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '/utils/env.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class StudentManagementPage extends StatefulWidget {
   const StudentManagementPage({super.key});
@@ -12,29 +16,90 @@ class StudentManagementPage extends StatefulWidget {
 }
 
 class _StudentManagementPageState extends State<StudentManagementPage> {
-  String selectedClass = 'Choose Class';
+  final secureStorage = const FlutterSecureStorage();
 
-  final List<Map<String, String>> students = List.generate(
-    4,
-    (index) => {
-      'name': 'AZRUL HAFIZ BIN ABDULLAH',
-      'matrix': 'B032310228',
-      'phone': '0123456789',
-    },
-  );
+  String? lecturerId;
+  String selectedClassName = 'Choose Class';
+  String? selectedClassId;
 
-void _showClassPicker() {
-  showClassPicker(
-    context: context,
-    selectedClass: selectedClass,
-    onSelected: (newClass) {
+  List<Map<String, dynamic>> students = [];
+  bool isLoading = false;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLecturerId();
+  }
+
+  Future<void> _loadLecturerId() async {
+    String? id = await secureStorage.read(key: 'lecturer_id');
+    setState(() {
+      lecturerId = id;
+    });
+    print('Lecturer ID from secure storage: $lecturerId');
+    if (id == null) {
       setState(() {
-        selectedClass = newClass;
+        isLoading = false;
+        errorMessage = 'Lecturer ID not found in secure storage.';
       });
-    },
-  );
-}
+    }
+  }
 
+  Future<void> fetchStudents(String classId) async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('${Env.baseUrl}/api_student/students?class_id=$classId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            students = List<Map<String, dynamic>>.from(data['data']);
+          });
+        } else {
+          setState(() {
+            errorMessage = data['message'] ?? 'Failed to fetch students';
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = 'Server Error: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  void _showClassPicker() {
+    if (lecturerId == null) return;
+
+    showClassPicker(
+      context: context,
+      selectedClass: selectedClassName,
+      lecturerId: lecturerId!,
+      onSelected: (classId, className) {
+        setState(() {
+          selectedClassId = classId;
+          selectedClassName = className;
+          fetchStudents(classId);
+        });
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,7 +156,7 @@ void _showClassPicker() {
                       ],
                     ),
                     child: Text(
-                      selectedClass,
+                      selectedClassName,
                       style: const TextStyle(color: Colors.white),
                     ),
                   ),
@@ -130,42 +195,64 @@ void _showClassPicker() {
 
             // Student list
             Expanded(
-              child: ListView.builder(
-                itemCount: students.length,
-                itemBuilder: (context, index) {
-                  final student = students[index];
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder:
-                              (context) => UpdateStudentPage(
-                                name: student['name']!,
-                                matrix: student['matrix']!,
-                                phone: student['phone']!,
-                                selectedClass:
-                                    selectedClass, // Pass selectedClass here
-                              ),
-                        ),
-                      );
-                    },
-                    child: Column(
-                      children: [
-                        Row(
-                          children: [
-                            Expanded(flex: 4, child: Text(student['name']!)),
-                            Expanded(flex: 3, child: Text(student['matrix']!)),
-                            Expanded(flex: 3, child: Text(student['phone']!)),
-                          ],
-                        ),
-                        const Divider(),
-                      ],
-                    ),
-                  );
-                },
-              ),
+              child:
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : errorMessage != null
+                      ? Center(child: Text(errorMessage!))
+                      : selectedClassId == null
+                      ? const Center(child: Text("Select a class."))
+                      : students.isEmpty
+                      ? const Center(child: Text("No students found."))
+                      : ListView.builder(
+                        itemCount: students.length,
+                        itemBuilder: (context, index) {
+                          final student = students[index];
+                          return InkWell(
+                            onTap: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => UpdateStudentPage(
+                                        studentId: student['student_id'],
+                                        selectedClass: selectedClassName,
+                                        currentName: student['name'],
+                                        currentMatrix: student['matrix'],
+                                        currentPhone: student['phone'],
+                                      ),
+                                ),
+                              );
+                              if (result == true && selectedClassId != null) {
+                                fetchStudents(selectedClassId!);
+                              }
+                            },
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 4,
+                                      child: Text(student['name'] ?? ''),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(student['matrix'] ?? ''),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(student['phone'] ?? ''),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
             ),
+
             const SizedBox(height: 12),
 
             // Add Student Button
@@ -173,19 +260,33 @@ void _showClassPicker() {
               width: double.infinity,
               height: 45,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) => AddStudentPage(
-                            selectedClass: selectedClass,
-                          ), // Remove const here
-                    ),
-                  );
-                },
+                onPressed:
+                    (selectedClassId == null || selectedClassId!.isEmpty)
+                        ? null // Disable button if no class selected
+                        : () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) => AddStudentPage(
+                                    classId: selectedClassId!,
+                                    className: selectedClassName,
+                                  ),
+                            ),
+                          );
+                          if (result == true && selectedClassId != null) {
+                            fetchStudents(
+                              selectedClassId!,
+                            ); // Refresh list after adding student
+                          }
+                        },
+
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2BA8FF),
+                  backgroundColor:
+                      (selectedClassId == null || selectedClassId!.isEmpty)
+                          ? Colors
+                              .grey // disabled color
+                          : const Color(0xFF2BA8FF),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -196,6 +297,7 @@ void _showClassPicker() {
                 ),
               ),
             ),
+
             const SizedBox(height: 30),
           ],
         ),

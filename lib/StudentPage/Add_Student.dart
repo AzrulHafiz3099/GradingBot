@@ -1,44 +1,96 @@
 import 'package:flutter/material.dart';
 import '/utils/colors.dart';
-import '/widget/class_picker.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '/utils/env.dart';
 
 class AddStudentPage extends StatefulWidget {
-  final String selectedClass; // Pass selectedClass from StudentManagementPage
+  final String classId;
+  final String className;
 
-  const AddStudentPage({super.key, required this.selectedClass});
+  const AddStudentPage({
+    super.key,
+    required this.classId,
+    required this.className,
+  });
 
   @override
   State<AddStudentPage> createState() => _AddStudentPageState();
 }
 
 class _AddStudentPageState extends State<AddStudentPage> {
+  final _formKey = GlobalKey<FormState>();
 
-  late String selectedClass;
   late TextEditingController nameController;
   late TextEditingController matrixController;
   late TextEditingController phoneController;
 
+  bool isLoading = false;
+  String? errorMessage;
+
   @override
   void initState() {
     super.initState();
-    selectedClass = widget.selectedClass; // Use the passed selectedClass
     nameController = TextEditingController();
     matrixController = TextEditingController();
     phoneController = TextEditingController();
   }
 
-void _showClassPicker() {
-  showClassPicker(
-    context: context,
-    selectedClass: selectedClass,
-    onSelected: (newClass) {
-      setState(() {
-        selectedClass = newClass;
-      });
-    },
-  );
-}
+  Future<void> _addStudent() async {
+    if (!_formKey.currentState!.validate()) {
+      // Form is invalid, don't proceed
+      return;
+    }
 
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+    });
+
+    try {
+      final response = await http.post(
+        Uri.parse('${Env.baseUrl}/api_student/students'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'class_id': widget.classId,
+          'name': nameController.text.trim(),
+          'matrix': matrixController.text.trim(),
+          'phone': phoneController.text.trim(),
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          Navigator.pop(context, true);
+        } else {
+          setState(() {
+            errorMessage = data['message'] ?? 'Failed to add student.';
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = 'Server error: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    nameController.dispose();
+    matrixController.dispose();
+    phoneController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,60 +115,92 @@ void _showClassPicker() {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ListView(
-          children: [
-            const SizedBox(height: 10),
-            const Text('Class', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 4),
-            InkWell(
-              onTap: _showClassPicker,
-              child: Container(
+        child: Form(
+          key: _formKey,
+          child: ListView(
+            children: [
+              const SizedBox(height: 10),
+              const Text('Class', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 4),
+              Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade400),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Text(selectedClass),
+                child: Text(widget.className),
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            const Text('Student Name', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 4),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                hintText: 'Enter student name',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              const Text('Student Name', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter student name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter student name';
+                  }
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            const Text('Matrix Number', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 4),
-            TextField(
-              controller: matrixController,
-              decoration: const InputDecoration(
-                hintText: 'Enter matrix number',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              const Text('Matrix Number', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: matrixController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter matrix number',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter matrix number';
+                  }
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-            const Text('Phone No.', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 4),
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(
-                hintText: 'Enter phone number',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              const Text('Phone No.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const SizedBox(height: 4),
+              TextFormField(
+                controller: phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(
+                  hintText: 'Enter phone number',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
+                ),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter phone number';
+                  }
+                  // Optional: Add a regex or length check for phone number format if needed
+                  return null;
+                },
               ),
-            ),
-            const SizedBox(height: 24),
 
-            const SizedBox(height: 100), // Breathing room above button
-          ],
+              if (errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Text(
+                    errorMessage!,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: Padding(
@@ -125,18 +209,22 @@ void _showClassPicker() {
           width: double.infinity,
           height: 48,
           child: ElevatedButton(
-            onPressed: () {
-              // Confirm logic: You can handle form validation or submission here
-            },
+            onPressed: isLoading ? null : _addStudent,
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.secondaryColor,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
+            child: isLoading
+                ? const CircularProgressIndicator(color: Colors.white)
+                : const Text(
+                    'Confirm',
+                    style: TextStyle(color: Colors.white),
+                  ),
           ),
         ),
       ),
     );
   }
 }
-

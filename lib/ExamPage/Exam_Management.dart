@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import '/utils/colors.dart';
-import '/widget/class_picker.dart';
-import 'ExamPage.dart';
-//import 'Update_Exam.dart';
+import '/widget/class_picker.dart'; // Your class picker widget, pass lecturerId to it
+import 'ExamPage.dart'; // Your exam detail/add page
+import 'Update_Exam.dart'; // Your exam detail/add page
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import '/utils/env.dart'; // Env.baseUrl for API base url
 
 class ExamManagementPage extends StatefulWidget {
   const ExamManagementPage({super.key});
@@ -12,21 +16,82 @@ class ExamManagementPage extends StatefulWidget {
 }
 
 class _ExamManagementPageState extends State<ExamManagementPage> {
-  String selectedClass = 'Choose Class';
+  final secureStorage = const FlutterSecureStorage();
 
-  final List<Map<String, String>> exams = List.generate(
-    1,
-    (index) => {'name': 'FINAL 2/2024', 'number': '2'},
-  );
+  String selectedClass = 'Choose Class';
+  String? selectedClassId;
+  String? lecturerId;
+
+  List<Map<String, dynamic>> exams = [];
+  bool isLoading = false;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLecturerId();
+  }
+
+  Future<void> _loadLecturerId() async {
+    String? id = await secureStorage.read(key: 'lecturer_id');
+    setState(() {
+      lecturerId = id;
+    });
+    print('Lecturer ID from secure storage: $lecturerId');
+  }
+
+  Future<void> fetchExams(String classId) async {
+    setState(() {
+      isLoading = true;
+      errorMessage = null;
+      exams = [];
+    });
+
+    try {
+      final response = await http.get(
+        Uri.parse('${Env.baseUrl}/api_exam/exams?class_id=$classId'),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            exams = List<Map<String, dynamic>>.from(data['data']);
+          });
+        } else {
+          setState(() {
+            errorMessage = data['message'] ?? 'Failed to fetch exams';
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = 'Server Error: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error: $e';
+      });
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
 
   void _showClassPicker() {
+    if (lecturerId == null) return;
+
     showClassPicker(
       context: context,
       selectedClass: selectedClass,
-      onSelected: (newClass) {
+      lecturerId: lecturerId!,
+      onSelected: (classId, className) {
         setState(() {
-          selectedClass = newClass;
+          selectedClassId = classId;
+          selectedClass = className;
         });
+        fetchExams(classId);
       },
     );
   }
@@ -77,7 +142,7 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
                     decoration: BoxDecoration(
                       color: Colors.blue[300],
                       borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
+                      boxShadow: const [
                         BoxShadow(
                           color: Colors.black12,
                           blurRadius: 4,
@@ -116,14 +181,17 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
                 ),
               ],
             ),
-
             const Divider(),
 
             // Exam list
             Expanded(
               child:
-                  exams.isEmpty
-                      ? const Center(child: Text("No exams available."))
+                  isLoading
+                      ? const Center(child: CircularProgressIndicator())
+                      : errorMessage != null
+                      ? Center(child: Text(errorMessage!))
+                      : exams.isEmpty
+                      ? const Center(child: Text("Select a class."))
                       : ListView.builder(
                         itemCount: exams.length,
                         itemBuilder: (context, index) {
@@ -131,16 +199,24 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
                           return Column(
                             children: [
                               InkWell(
-                                onTap: () {
-                                  Navigator.push(
+                                onTap: () async {
+                                  final updated = await Navigator.push(
                                     context,
                                     MaterialPageRoute(
                                       builder:
                                           (context) =>
-                                              AddExamPage(),
+                                              UpdateExamPage(examData: exam),
                                     ),
                                   );
+
+                                  if (updated == true &&
+                                      selectedClassId != null) {
+                                    fetchExams(
+                                      selectedClassId!,
+                                    ); // Refresh exam list after update
+                                  }
                                 },
+
                                 child: Row(
                                   children: [
                                     Expanded(
@@ -150,13 +226,18 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
                                     Expanded(
                                       flex: 3,
                                       child: Center(
-                                        child: Text(exam['number'] ?? ''),
+                                        child: Text(
+                                          exam['question_count']?.toString() ??
+                                              '0',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ],
                                 ),
                               ),
-
                               const Divider(),
                             ],
                           );
@@ -170,15 +251,27 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
               width: double.infinity,
               height: 45,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) => AddExamPage(),
-                    ),
-                  );
-                },
+                onPressed:
+                    selectedClassId == null
+                        ? null // disable if no class selected
+                        : () async {
+                          final added = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder:
+                                  (context) =>
+                                      AddExamPage(classId: selectedClassId!),
+                            ),
+                          );
+
+                          if (added == true) {
+                            // Refresh exams if new exam was added successfully
+                            if (selectedClassId != null) {
+                              fetchExams(selectedClassId!);
+                            }
+                          }
+                        },
+
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2BA8FF),
                   shape: RoundedRectangleBorder(

@@ -19,17 +19,17 @@ class _SubmissionPageState extends State<SubmissionPage> {
   String selectedStudent = 'Choose Student';
   TextEditingController questionController = TextEditingController();
 
-  void _showClassPicker() {
-    showClassPicker(
-      context: context,
-      selectedClass: selectedClass,
-      onSelected: (value) {
-        setState(() {
-          selectedClass = value;
-        });
-      },
-    );
-  }
+  // void _showClassPicker() {
+  //   showClassPicker(
+  //     context: context,
+  //     selectedClass: selectedClass,
+  //     onSelected: (value) {
+  //       setState(() {
+  //         selectedClass = value;
+  //       });
+  //     },
+  //   );
+  // }
 
   void _showExamPicker() {
     showExamPicker(
@@ -87,7 +87,7 @@ class _SubmissionPageState extends State<SubmissionPage> {
             ),
             const SizedBox(height: 4),
             InkWell(
-              onTap: _showClassPicker,
+              // onTap: _showClassPicker,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,

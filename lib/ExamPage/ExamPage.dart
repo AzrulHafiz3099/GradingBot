@@ -1,9 +1,83 @@
 import 'package:flutter/material.dart';
-import 'QuestionPage.dart';
-import '/utils/colors.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '/utils/env.dart';
 
-class AddExamPage extends StatelessWidget {
-  const AddExamPage({super.key});
+class AddExamPage extends StatefulWidget {
+  final String classId; // You need to pass classId to create exam under a class
+
+  const AddExamPage({Key? key, required this.classId}) : super(key: key);
+
+  @override
+  State<AddExamPage> createState() => _AddExamPageState();
+}
+
+class _AddExamPageState extends State<AddExamPage> {
+  final _formKey = GlobalKey<FormState>();
+  late TextEditingController _examNameController;
+  bool _isLoading = false;
+  String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _examNameController = TextEditingController(text: '');
+  }
+
+  @override
+  void dispose() {
+    _examNameController.dispose();
+    super.dispose();
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _addExam() async {
+    if (!_formKey.currentState!.validate()) {
+      // Form is invalid, do not proceed
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    final url = Uri.parse('${Env.baseUrl}/api_exam/exams');
+    final body = jsonEncode({
+      "class_id": widget.classId,
+      "name": _examNameController.text.trim(),
+    });
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {"Content-Type": "application/json"},
+        body: body,
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['success'] == true) {
+        _showSnackBar('Exam added successfully.');
+        Navigator.pop(context, true);
+      } else {
+        setState(() {
+          _errorMessage = data['message'] ?? 'Failed to add exam.';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _errorMessage = 'Error adding exam: $e';
+      });
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,121 +101,58 @@ class AddExamPage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Exam Name'),
-            const SizedBox(height: 8),
-            TextFormField(
-              initialValue: 'FINAL 2/2024',
-              decoration: InputDecoration(
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Exam Name'),
+              const SizedBox(height: 8),
+              TextFormField(
+                controller: _examNameController,
+                decoration: InputDecoration(
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder:
-                          (context) => AddQuestionPage(),
-                    ),
-                  );
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Please enter exam name';
+                  }
+                  return null;
                 },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2BA8FF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  'Add Question',
-                  style: TextStyle(color: Colors.white),
-                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              'Manage Question',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: AppColors.primaryColor,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
+              if (_errorMessage != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
                   child: Text(
-                    'Question',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                    textAlign:
-                        TextAlign
-                            .start, // Ensuring "Question" is aligned to the left
+                    _errorMessage!,
+                    style: const TextStyle(color: Colors.red),
                   ),
                 ),
-                Expanded(
-                  child: Text(
-                    'Total Marks',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center, // Centering "Total Marks"
+              const Spacer(),
+              SizedBox(
+                width: double.infinity,
+                height: 45,
+                child: ElevatedButton(
+                  onPressed: _isLoading ? null : _addExam,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2BA8FF),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: Text(
-                    'Total Scheme',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                    textAlign: TextAlign.center, // Centering "Total Keywords"
-                  ),
-                ),
-              ],
-            ),
-            const Divider(),
-            const Row(
-              children: [
-                Expanded(flex: 3, child: Text('Give 2 Prime Number of 2.')),
-                Expanded(child: Center(child: Text('2'))),
-                Expanded(child: Center(child: Text('2'))),
-              ],
-            ),
-            const Divider(),
-            const SizedBox(height: 10),
-            Center(
-              child: TextButton(
-                onPressed: () {},
-                child: const Text(
-                  'Delete Exam',
-                  style: TextStyle(color: Colors.red),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Confirm',
+                          style: TextStyle(color: Colors.white),
+                        ),
                 ),
               ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              height: 45,
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2BA8FF),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Confirm',
-                  style: TextStyle(color: Colors.white),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
