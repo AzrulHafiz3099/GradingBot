@@ -1,10 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'ResultPage/Result_Management.dart';
 import 'ClassPage/Class_Management.dart';
 import 'StudentPage/Student_Management.dart';
 import 'ExamPage/Exam_Management.dart';
-import 'ResultPage/Result_Management.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
+import '/utils/env.dart';
+import 'ResultPage/Result_Details.dart'; // Update path if needed
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -16,6 +19,14 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final FlutterSecureStorage secureStorage = const FlutterSecureStorage();
   String? lecturerId;
+  bool isLoading = true;
+  List<Map<String, dynamic>> recentResults = [];
+  String? errorMessage;
+  String? lecturerName;
+  int? classCount;
+  int? studentCount;
+  int? examCount;
+  int? resultCount;
 
   @override
   void initState() {
@@ -28,7 +39,78 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       lecturerId = id;
     });
-    print('Lecturer ID from secure storage: $lecturerId');
+    if (id != null) {
+      await fetchSummaryData(id);
+      await fetchRecentResults(id);
+    } else {
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Lecturer ID not found';
+      });
+    }
+  }
+
+  Future<void> fetchSummaryData(String lecturerId) async {
+    final url = '${Env.baseUrl}/api_homepage/summary?lecturer_id=$lecturerId';
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            lecturerName = data['data']['lecturer_name'];
+            classCount = data['data']['class_count'];
+            studentCount = data['data']['student_count'];
+            examCount = data['data']['exam_count'];
+            resultCount = data['data']['result_count'];
+          });
+        } else {
+          setState(() {
+            errorMessage = data['message'];
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = 'Server error: ${response.statusCode}';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error: $e';
+      });
+    }
+  }
+
+  Future<void> fetchRecentResults(String lecturerId) async {
+    final url =
+        '${Env.baseUrl}/api_result/by_lecturer5?lecturer_id=$lecturerId';
+    try {
+      final response = await http.get(Uri.parse(url));
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            recentResults = List<Map<String, dynamic>>.from(data['data']);
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            errorMessage = data['message'];
+            isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = 'Server error: ${response.statusCode}';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error: $e';
+        isLoading = false;
+      });
+    }
   }
 
   @override
@@ -42,10 +124,41 @@ class _HomePageState extends State<HomePage> {
             const SizedBox(height: 20),
             _buildRecentResultsTitle(),
             const SizedBox(height: 10),
-            _buildResultCard("AZRUL HAFIZ BIN ABDULLAH"),
-            _buildResultCard("AMIR HAMZAH BIN MOHD ZAMRI"),
-            _buildResultCard("MOHAMAD IMAN AKMAL BIN ISMAIL"),
-            _buildResultCard("NUR AMALINA AQILAH BINTI MOHD NAPI"),
+            if (isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (errorMessage != null)
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Text(
+                  errorMessage!,
+                  style: const TextStyle(color: Colors.red),
+                ),
+              )
+            else if (recentResults.isNotEmpty)
+              Column(
+                children:
+                    recentResults.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final result = entry.value;
+
+                      return AnimatedResultCard(
+                        index: index,
+                        child: _buildResultCard(
+                          result['result_id'].toString(),
+                          result['student_id'].toString(),
+                          result['student_name'] ?? '',
+                          result['timestamp']?.split('T')[0] ?? '',
+                          result['score']?.toString() ?? '0',
+                          result['class_name'] ?? '',
+                        ),
+                      );
+                    }).toList(),
+              )
+            else
+              const Padding(
+                padding: EdgeInsets.all(12.0),
+                child: Text("No recent results available."),
+              ),
             const SizedBox(height: 10),
             _buildShowMoreButton(),
             const SizedBox(height: 90),
@@ -68,9 +181,9 @@ class _HomePageState extends State<HomePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Hi, Welcome Back Azrul',
-            style: TextStyle(
+          Text(
+            'Hi, Welcome Back ${lecturerName ?? ''}',
+            style: const TextStyle(
               color: Colors.white,
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -85,7 +198,7 @@ class _HomePageState extends State<HomePage> {
           LayoutBuilder(
             builder: (context, constraints) {
               return Transform.translate(
-                offset: const Offset(0, -16), // Move it up by 16 pixels
+                offset: const Offset(0, -16),
                 child: Container(
                   padding: const EdgeInsets.fromLTRB(16, 0, 16, 30),
                   decoration: BoxDecoration(
@@ -103,7 +216,7 @@ class _HomePageState extends State<HomePage> {
                       _buildInfoCard(
                         Icons.tv,
                         'CLASS',
-                        '2',
+                        classCount?.toString() ?? '0',
                         Colors.blue,
                         const Color(0xFFE0F1FF),
                         Colors.blue,
@@ -119,7 +232,7 @@ class _HomePageState extends State<HomePage> {
                       _buildInfoCard(
                         Icons.school_outlined,
                         'STUDENT',
-                        '21',
+                        studentCount?.toString() ?? '0',
                         Colors.pink,
                         const Color(0xFFFFE9EE),
                         Colors.pink,
@@ -135,7 +248,7 @@ class _HomePageState extends State<HomePage> {
                       _buildInfoCard(
                         Icons.edit_document,
                         'EXAM',
-                        '5',
+                        examCount?.toString() ?? '0',
                         Colors.green,
                         const Color(0xFFE6FFF2),
                         Colors.green,
@@ -151,7 +264,7 @@ class _HomePageState extends State<HomePage> {
                       _buildInfoCard(
                         Icons.assignment_turned_in,
                         'RESULT',
-                        '35',
+                        resultCount?.toString() ?? '0',
                         Colors.purple,
                         const Color(0xFFEDEBFF),
                         Colors.purple,
@@ -254,53 +367,100 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildResultCard(String name) {
+  Widget _buildResultCard(
+    String resultId,
+    String studentId,
+    String name,
+    String date,
+    String score,
+    String className,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 6),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x11000000),
-              blurRadius: 4,
-              offset: Offset(0, 2),
+      child: GestureDetector(
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder:
+                  (context) => ResultDetailsPage(
+                    studentId: studentId,
+                    resultId: resultId,
+                  ),
             ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              name,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
-                color: Colors.black87,
+          );
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color.fromARGB(255, 242, 245, 252),
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: const Color.fromARGB(255, 206, 227, 245)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color.fromARGB(60, 0, 0, 0),
+                blurRadius: 4,
+                offset: Offset(0, 3),
               ),
-            ),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: const [
-                Text("Submitted :  13/4/2025", style: TextStyle(fontSize: 12)),
-                Text(
-                  "Score :  2/2",
-                  style: TextStyle(fontSize: 12, color: Colors.blue),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 6,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: Colors.purple,
+                  borderRadius: BorderRadius.circular(4),
                 ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            const Align(
-              alignment: Alignment.bottomRight,
-              child: Text(
-                "BITP3233",
-                style: TextStyle(fontSize: 11, color: Colors.grey),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          "Submitted: $date",
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                        Text(
+                          "Score: $score",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.blue,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: Text(
+                        className,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -308,7 +468,12 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildShowMoreButton() {
     return ElevatedButton(
-      onPressed: () {},
+      onPressed: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ResultManagementPage()),
+        );
+      },
       style: ElevatedButton.styleFrom(
         backgroundColor: Colors.white,
         side: const BorderSide(color: Colors.blue),
@@ -317,6 +482,47 @@ class _HomePageState extends State<HomePage> {
         padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 12),
       ),
       child: const Text('Show more', style: TextStyle(color: Colors.blue)),
+    );
+  }
+}
+
+class AnimatedResultCard extends StatefulWidget {
+  final int index;
+  final Widget child;
+
+  const AnimatedResultCard({
+    super.key,
+    required this.index,
+    required this.child,
+  });
+
+  @override
+  State<AnimatedResultCard> createState() => _AnimatedResultCardState();
+}
+
+class _AnimatedResultCardState extends State<AnimatedResultCard>
+    with SingleTickerProviderStateMixin {
+  bool _visible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(Duration(milliseconds: 200 * widget.index), () {
+      if (mounted) {
+        setState(() {
+          _visible = true;
+        });
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 3000),
+      opacity: _visible ? 1.0 : 0.0,
+      curve: Curves.easeOutBack,
+      child: widget.child,
     );
   }
 }

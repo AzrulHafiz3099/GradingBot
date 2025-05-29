@@ -1,36 +1,76 @@
 import 'package:flutter/material.dart';
 import '/utils/colors.dart';
-import 'Result_Details.dart'; // Import the result details page
+import 'Result_Details.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '/utils/env.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-class ResultManagementPage extends StatelessWidget {
+class ResultManagementPage extends StatefulWidget {
   const ResultManagementPage({super.key});
 
-  final List<Map<String, String>> results = const [
-    {
-      'name': 'AZRUL HAFIZ BIN ABDULLAH',
-      'class': 'BITP2223',
-      'score': '2/2',
-    },
-    {
-      'name': 'AZRUL HAFIZ BIN ABDULLAH',
-      'class': 'BITP2223',
-      'score': '2/2',
-    },
-    {
-      'name': 'AZRUL HAFIZ BIN ABDULLAH',
-      'class': 'BITP2223',
-      'score': '2/2',
-    },
-    {
-      'name': 'AZRUL HAFIZ BIN ABDULLAH',
-      'class': 'BITP2223',
-      'score': '0/2',
-    },
-  ];
+  @override
+  State<ResultManagementPage> createState() => _ResultManagementPageState();
+}
+
+class _ResultManagementPageState extends State<ResultManagementPage> {
+  final secureStorage = const FlutterSecureStorage();
+  List<Map<String, dynamic>> results = [];
+  bool isLoading = true;
+  String? errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLecturerIdAndFetchResults();
+  }
+
+  Future<void> _loadLecturerIdAndFetchResults() async {
+    String? lecturerId = await secureStorage.read(key: 'lecturer_id');
+    if (lecturerId == null) {
+      setState(() {
+        isLoading = false;
+        errorMessage = 'Lecturer ID not found';
+      });
+      return;
+    }
+
+    try {
+      final response = await http.get(
+        Uri.parse(
+          '${Env.baseUrl}/api_result/by_lecturer?lecturer_id=$lecturerId',
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          setState(() {
+            results = List<Map<String, dynamic>>.from(data['data']);
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            errorMessage = data['message'] ?? 'Failed to fetch results';
+            isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          errorMessage = 'Server Error: ${response.statusCode}';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        errorMessage = 'Error: $e';
+        isLoading = false;
+      });
+    }
+  }
 
   Color _getScoreColor(String score) {
-    final parts = score.split('/');
-    if (parts.length == 2 && parts[0] == '0') {
+    if (score.startsWith('0')) {
       return Colors.red;
     }
     return const Color(0xFF2BA8FF); // Blue
@@ -59,89 +99,101 @@ class ResultManagementPage extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: Column(
-          children: [
-            const SizedBox(height: 16),
-            const Row(
-              children: [
-                Expanded(
-                  flex: 5,
-                  child: Text(
-                    'Student Name',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
-                  child: Text(
-                    'Class',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Expanded(
-                  flex: 2,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Text(
-                      'Score',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const Divider(),
-
-            Expanded(
-              child: ListView.builder(
-                itemCount: results.length,
-                itemBuilder: (context, index) {
-                  final result = results[index];
-                  final scoreColor = _getScoreColor(result['score']!);
-
-                  return InkWell(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const ResultDetailsPage(),
-                          // You can pass result data here if needed
-                        ),
-                      );
-                    },
-                    child: Column(
+        child:
+            isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : errorMessage != null
+                ? Center(child: Text(errorMessage!))
+                : Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    const Row(
                       children: [
-                        Row(
-                          children: [
-                            Expanded(
-                              flex: 5,
-                              child: Text(result['name'] ?? ''),
-                            ),
-                            Expanded(
-                              flex: 3,
-                              child: Text(result['class'] ?? ''),
-                            ),
-                            Expanded(
-                              flex: 2,
-                              child: Align(
-                                alignment: Alignment.centerRight,
-                                child: Text(
-                                  result['score'] ?? '',
-                                  style: TextStyle(color: scoreColor),
-                                ),
-                              ),
-                            ),
-                          ],
+                        Expanded(
+                          flex: 5,
+                          child: Text(
+                            'Student Name',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
                         ),
-                        const Divider(),
+                        Expanded(
+                          flex: 3,
+                          child: Text(
+                            'Class',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        Expanded(
+                          flex: 2,
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Text(
+                              'Score',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+                    const Divider(),
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: results.length,
+                        itemBuilder: (context, index) {
+                          final result = results[index];
+                          final scoreColor = _getScoreColor(
+                            result['score'] ?? '0',
+                          );
+
+                          return InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => ResultDetailsPage(
+                                        studentId:
+                                            result['student_id'], // Pass student ID
+                                        resultId: 
+                                            result['result_id'],
+                                      ),
+                                ),
+                              );
+                            },
+
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      flex: 5,
+                                      child: Text(result['student_name'] ?? ''),
+                                    ),
+                                    Expanded(
+                                      flex: 3,
+                                      child: Text(result['class_name'] ?? ''),
+                                    ),
+                                    Expanded(
+                                      flex: 2,
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: Text(
+                                          result['score'] ?? '',
+                                          style: TextStyle(color: scoreColor),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const Divider(),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
       ),
     );
   }

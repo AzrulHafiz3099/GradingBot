@@ -67,17 +67,17 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
               },
               onTapDown: (_) {
                 setState(() {
-                  _isPressed = true; // Activate shadow when pressed
+                  _isPressed = true;
                 });
               },
               onTapUp: (_) {
                 setState(() {
-                  _isPressed = false; // Remove shadow when release
+                  _isPressed = false;
                 });
               },
               onTapCancel: () {
                 setState(() {
-                  _isPressed = false; // Remove shadow if canceled
+                  _isPressed = false;
                 });
               },
               borderRadius: BorderRadius.circular(30),
@@ -105,11 +105,12 @@ class _CustomBottomNavState extends State<CustomBottomNav> {
                             ),
                           ],
                 ),
-                child: const Center(
-                  child: Icon(
-                    Icons.qr_code_scanner,
-                    size: 28,
-                    color: Colors.white,
+                child: Center(
+                  child: Image.asset(
+                    'assets/scan3-unscreen.gif', // Replace with your gif asset path
+                    height: 45,
+                    width: 45,
+                    fit: BoxFit.contain,
                   ),
                 ),
               ),
