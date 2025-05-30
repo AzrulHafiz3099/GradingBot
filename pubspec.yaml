@@ -35,6 +35,8 @@ dependencies:
   dotenv: ^4.0.1
   http: ^0.13.5
   flutter_secure_storage: ^8.0.0
+  image_picker: ^1.0.4
+  file_picker: ^10.1.9
 
   flutter:
     sdk: flutter
@@ -111,3 +113,13 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+# dependency_overrides:
+#   file_picker_linux:
+#     path: .dart_tool/fake_file_picker_linux
+#   file_picker_macos:
+#     path: .dart_tool/fake_file_picker_macos
+#   file_picker_windows:
+#     path: .dart_tool/fake_file_picker_windows
+
+
+

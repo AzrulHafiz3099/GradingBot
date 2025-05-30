@@ -1,33 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import '/utils/env.dart';
 
 typedef OnStudentSelected = void Function(String selectedStudent);
-
-final List<String> students = [
-  'Choose Student',
-  'AZRUL HAFIZ BIN ABDULLAH',
-  'MOHAMAD IMAN AKMAL BIN ISMAIL',
-  'AMIR HAMZAH BIN MOHD ZAMRI',
-  'NUR AMALINA AQILAH BINTI MOHD NAPI',
-  'STUDENT 5',
-  'STUDENT 6',
-  'STUDENT 7',
-  'STUDENT 8',
-];
 
 Future<void> showStudentPicker({
   required BuildContext context,
   required String selectedStudent,
+  required String classId,
   required OnStudentSelected onSelected,
-}) {
-  return showModalBottomSheet(
+}) async {
+  List<String> studentNames = [];
+
+  try {
+    final response = await http.get(Uri.parse('${Env.baseUrl}/api_student/students?class_id=$classId'));
+
+    if (response.statusCode == 200) {
+      final data = json.decode(response.body);
+      if (data['success'] == true) {
+        studentNames = (data['data'] as List)
+            .map<String>((student) => student['name'].toString())
+            .toList();
+      }
+    } else {
+      throw Exception('Failed to load students');
+    }
+  } catch (e) {
+    // Optional: show error dialog/snackbar here
+    studentNames = [];
+  }
+
+  if (studentNames.isEmpty) {
+    studentNames.add("No students found");
+  }
+
+  showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (_) {
       return Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -49,11 +65,11 @@ Future<void> showStudentPicker({
             ),
             const SizedBox(height: 8),
             SizedBox(
-              height: 300, // Match exam picker height
+              height: 300,
               child: ListView.builder(
-                itemCount: students.length,
+                itemCount: studentNames.length,
                 itemBuilder: (context, index) {
-                  final student = students[index];
+                  final student = studentNames[index];
                   return ListTile(
                     title: Text(
                       student,

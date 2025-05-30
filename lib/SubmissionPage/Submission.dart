@@ -5,6 +5,7 @@ import '/widget/exam_picker.dart';
 import '/widget/student_picker.dart';
 import 'package:flutter/services.dart';
 import 'Scan_Answer.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SubmissionPage extends StatefulWidget {
   const SubmissionPage({super.key});
@@ -17,36 +18,76 @@ class _SubmissionPageState extends State<SubmissionPage> {
   String selectedClass = 'Choose Class';
   String selectedExam = 'Choose Exam';
   String selectedStudent = 'Choose Student';
-  TextEditingController questionController = TextEditingController();
+  
+  // TextEditingController questionController = TextEditingController(); // 🔒 Commented: used for number of questions
 
-  // void _showClassPicker() {
-  //   showClassPicker(
-  //     context: context,
-  //     selectedClass: selectedClass,
-  //     onSelected: (value) {
-  //       setState(() {
-  //         selectedClass = value;
-  //       });
-  //     },
-  //   );
-  // }
+  final secureStorage = const FlutterSecureStorage();
+  String? lecturerId;
+  String? selectedClassId;
+  String? selectedExamId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLecturerId(); // Load lecturer ID at start
+  }
+
+  Future<void> _loadLecturerId() async {
+    final id = await secureStorage.read(key: 'lecturer_id');
+    setState(() => lecturerId = id);
+  }
+
+  void _showClassPicker() {
+    if (lecturerId == null) return; // Safety check
+    showClassPicker(
+      context: context,
+      selectedClass: selectedClass,
+      lecturerId: lecturerId!,
+      onSelected: (classId, className) {
+        setState(() {
+          selectedClass = className;
+          selectedClassId = classId;
+          selectedExam = 'Choose Exam'; // Reset exam
+          selectedExamId = null;
+          selectedStudent = 'Choose Student'; // Reset student
+        });
+      },
+    );
+  }
 
   void _showExamPicker() {
+    if (selectedClassId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a class first')),
+      );
+      return;
+    }
+
     showExamPicker(
       context: context,
       selectedExam: selectedExam,
-      onSelected: (value) {
+      classId: selectedClassId!,
+      onSelected: (examId, examName) {
         setState(() {
-          selectedExam = value;
+          selectedExam = examName;
+          selectedExamId = examId;
         });
       },
     );
   }
 
   void _showStudentPicker() {
+    if (selectedClassId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a class first')),
+      );
+      return;
+    }
+
     showStudentPicker(
       context: context,
       selectedStudent: selectedStudent,
+      classId: selectedClassId!,
       onSelected: (value) {
         setState(() {
           selectedStudent = value;
@@ -87,7 +128,7 @@ class _SubmissionPageState extends State<SubmissionPage> {
             ),
             const SizedBox(height: 4),
             InkWell(
-              // onTap: _showClassPicker,
+              onTap: lecturerId != null ? _showClassPicker : null,
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
@@ -96,8 +137,17 @@ class _SubmissionPageState extends State<SubmissionPage> {
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade400),
                   borderRadius: BorderRadius.circular(10),
+                  color:
+                      lecturerId == null
+                          ? Colors.grey.shade200
+                          : Colors.transparent,
                 ),
-                child: Text(selectedClass),
+                child: Text(
+                  lecturerId == null ? 'Loading...' : selectedClass,
+                  style: TextStyle(
+                    color: lecturerId == null ? Colors.grey : Colors.black,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -144,6 +194,8 @@ class _SubmissionPageState extends State<SubmissionPage> {
             ),
             const SizedBox(height: 16),
 
+            // 🔒 Commented out - No. of Question Input
+            /*
             const Text(
               'No. of Question (Max - 10)',
               style: TextStyle(color: Colors.grey, fontSize: 12),
@@ -155,7 +207,6 @@ class _SubmissionPageState extends State<SubmissionPage> {
               onChanged: (value) {
                 if (value.isEmpty) return;
 
-                // Prevent leading zeros like '01', '02'
                 if (value.length > 1 && value.startsWith('0')) {
                   questionController.text = value.substring(1);
                   questionController.selection = TextSelection.fromPosition(
@@ -180,6 +231,7 @@ class _SubmissionPageState extends State<SubmissionPage> {
                 ),
               ),
             ),
+            */
           ],
         ),
       ),
@@ -189,9 +241,9 @@ class _SubmissionPageState extends State<SubmissionPage> {
           width: double.infinity,
           height: 48,
           child: ElevatedButton(
-            onPressed: () {
-              final numberText = questionController.text;
-              final number = int.tryParse(numberText);
+            onPressed: () async {
+              // final numberText = questionController.text; // 🔒 Commented
+              // final number = int.tryParse(numberText); // 🔒 Commented
 
               String? errorMessage;
 
@@ -201,7 +253,9 @@ class _SubmissionPageState extends State<SubmissionPage> {
                 errorMessage = 'Please select an exam.';
               } else if (selectedStudent == 'Choose Student') {
                 errorMessage = 'Please select a student.';
-              } else if (numberText.isEmpty) {
+              }
+              /*
+              else if (numberText.isEmpty) {
                 errorMessage = 'Please enter the number of questions.';
               } else if (number == null) {
                 errorMessage = 'Invalid number format.';
@@ -210,6 +264,7 @@ class _SubmissionPageState extends State<SubmissionPage> {
               } else if (numberText.length > 1 && numberText.startsWith('0')) {
                 errorMessage = 'Do not use leading zeros (e.g. 01, 02).';
               }
+              */
 
               if (errorMessage != null) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -222,7 +277,18 @@ class _SubmissionPageState extends State<SubmissionPage> {
                 return;
               }
 
-              // All inputs are valid, navigate to ScanAnswerPage
+              // ✅ Save to secure storage
+              await secureStorage.write(
+                key: 'class_id',
+                value: selectedClassId,
+              );
+              await secureStorage.write(key: 'exam_id', value: selectedExamId);
+              await secureStorage.write(
+                key: 'student_id',
+                value: selectedStudent,
+              );
+
+              // ✅ Navigate to Scan Answer Page
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ScanAnswerPage()),
