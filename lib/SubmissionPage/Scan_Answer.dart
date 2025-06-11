@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
 import 'dart:io';
+import 'package:http_parser/http_parser.dart';
 
 class ScanAnswerPage extends StatefulWidget {
   const ScanAnswerPage({super.key});
@@ -28,12 +29,20 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
   String? examId;
   String? classId;
   String? studentId;
+  double? totalMarksAwarded;
+  double? totalMarksPossible;
 
   @override
   void initState() {
     super.initState();
     loadInitialData();
+    printQuestionSummaries();
+    // clearSummary();
   }
+
+  Future<void> clearSummary() async {
+  await secureStorage.delete(key: 'summary');
+}
 
   File? selectedFile;
 
@@ -70,6 +79,219 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
             overflow: TextOverflow.ellipsis,
           ),
         ],
+      );
+    }
+  }
+
+  Future<void> appendToSummary({
+  required int questionNumber,
+  required String questionId,
+  required String questionText,
+  required List<Map<String, dynamic>> schemes, // scheme_id, text, marks
+  required String uploadedFileName,
+  required double awardedMarks,
+  required double totalPossibleMarks,
+}) async {
+  // Format this question's summary
+  StringBuffer questionSummary = StringBuffer();
+
+  questionSummary.writeln('Question $questionNumber\n');
+  questionSummary.writeln('Question ID : $questionId');
+  questionSummary.writeln('Question Text : $questionText');
+  questionSummary.writeln('Total Schemes : ${schemes.length}');
+
+  for (int i = 0; i < schemes.length; i++) {
+    final scheme = schemes[i];
+    questionSummary.writeln('Scheme ID ${i + 1} : ${scheme['scheme_id']}');
+    questionSummary.writeln('Scheme Text : ${scheme['scheme_text']}');
+    questionSummary.writeln('Marks : ${scheme['marks']}');
+  }
+
+  questionSummary.writeln('Uploaded File : $uploadedFileName');
+  questionSummary.writeln('Total Marks Awarded : $awardedMarks/$totalPossibleMarks\n');
+
+  // Read existing summary
+  String? existingSummary = await secureStorage.read(key: 'summary');
+
+  // Append this question summary
+  String newSummary = (existingSummary ?? '') + questionSummary.toString();
+
+  // Print the summary in terminal
+  print("---- Appended Summary ----\n$newSummary");
+
+  // Save back to secure storage
+  await secureStorage.write(key: 'summary', value: newSummary);
+
+// Also store structured JSON
+String? jsonRaw = await secureStorage.read(key: 'summary_json');
+List<dynamic> summaryJson = jsonRaw != null ? json.decode(jsonRaw) : [];
+
+summaryJson.add({
+  'question_number': questionNumber,
+  'question_id': questionId,
+  'question_text': questionText,
+  'uploaded_file': uploadedFileName,
+  'schemes': schemes,
+  'awarded_marks': awardedMarks,
+  'total_marks': totalPossibleMarks,
+});
+
+await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
+  
+}
+
+
+  Future<void> markCurrentQuestionNotGraded() async {
+    final currentQuestion = questionsData[currentQuestionIndex];
+    final questionId =
+        currentQuestion['question_id'] ?? currentQuestion['Question_ID'];
+
+    // Save a summary indicating NOT graded (marks = null or -1 or something)
+    await saveQuestionSummary(questionId.toString(), {
+      'scheme_results': [],
+      'total_awarded_marks': null,
+      'total_possible_marks': null,
+      'graded': false, // optional flag
+    });
+
+    // Also reset UI state for this question:
+    setState(() {
+      selectedSchemeIds[currentQuestionIndex] = [];
+      selectedFile = null;
+      totalMarksAwarded = null;
+      totalMarksPossible = null;
+    });
+  }
+
+  Future<void> printQuestionSummaries() async {
+    List<Map<String, dynamic>> summaries = await loadAllQuestionSummaries();
+    print('Loaded question summaries:');
+    for (var summary in summaries) {
+      print(summary);
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> loadAllQuestionSummaries() async {
+    final summaryKey = 'scan_answer_summary';
+    String? data = await secureStorage.read(key: summaryKey);
+    if (data == null) return [];
+    return List<Map<String, dynamic>>.from(jsonDecode(data));
+  }
+
+  Future<void> saveQuestionSummary(
+    String questionId,
+    Map<String, dynamic> responseData,
+  ) async {
+    final summaryKey = 'scan_answer_summary';
+
+    // Get the existing list (if any)
+    String? existing = await secureStorage.read(key: summaryKey);
+    List<dynamic> summaries = [];
+
+    if (existing != null) {
+      summaries = jsonDecode(existing);
+    }
+
+    // Remove any previous entry for the same question_id
+    summaries.removeWhere((item) => item['question_id'] == questionId);
+
+    // Add updated summary
+    summaries.add({
+      'question_id': questionId,
+      'summary': {
+        'scheme_results': responseData['scheme_results'] ?? [],
+        'totalMarksAwarded': responseData['total_awarded_marks'],
+        'totalMarksPossible': responseData['total_possible_marks'],
+      },
+    });
+
+    // Save back to storage
+    await secureStorage.write(key: summaryKey, value: jsonEncode(summaries));
+  }
+
+  Future<void> uploadAnswerFile() async {
+    if (selectedFile == null) return;
+
+    final currentQuestion = questionsData[currentQuestionIndex];
+    final questionId =
+        currentQuestion['question_id'] ?? currentQuestion['Question_ID'];
+    final schemes = currentQuestion['schemes'] ?? [];
+    final selectedSchemes = selectedSchemeIds[currentQuestionIndex] ?? [];
+
+    final selectedSchemeDetails =
+        schemes
+            .where(
+              (scheme) => selectedSchemes.contains(
+                scheme['scheme_id'] ?? scheme['Scheme_ID'],
+              ),
+            )
+            .map(
+              (scheme) => {
+                'scheme_id': scheme['scheme_id'] ?? scheme['Scheme_ID'],
+                'scheme_text': scheme['scheme_text'] ?? scheme['Scheme_Text'],
+                'marks': scheme['marks'] ?? scheme['Marks'],
+              },
+            )
+            .toList();
+
+      print('Selected Scheme Details before upload:');
+      print(json.encode(selectedSchemeDetails));
+      
+
+    final uri = Uri.parse('${Env.baseUrl}/api_scan/upload');
+    final request = http.MultipartRequest('POST', uri);
+
+    request.fields['exam_id'] = examId ?? '';
+    request.fields['class_id'] = classId ?? '';
+    request.fields['student_id'] = studentId ?? '';
+    request.fields['question_id'] = questionId.toString();
+    request.fields['schemes_json'] = json.encode(selectedSchemeDetails);
+
+    request.files.add(
+      await http.MultipartFile.fromPath('file', selectedFile!.path),
+    );
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    final responseData = jsonDecode(response.body);
+
+    if (response.statusCode == 200 && responseData['success']) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('File uploaded and processed successfully'),
+        ),
+      );
+
+      // First parse marks info and update UI
+      setState(() {
+        totalMarksAwarded = responseData['total_awarded_marks'] ?? 0;
+        totalMarksPossible = responseData['total_possible_marks'] ?? 0;
+        print('Marks awarded: $totalMarksAwarded / $totalMarksPossible');
+        print(responseData);
+      });
+
+      // Then await the async call separately
+      await appendToSummary(
+        questionNumber: currentQuestionIndex + 1,
+        questionId:
+            currentQuestion['question_id'] ?? currentQuestion['Question_ID'],
+        questionText:
+            currentQuestion['question_text'] ??
+            currentQuestion['Question_Text'],
+        schemes:
+            selectedSchemeDetails.cast<Map<String, dynamic>>(), // 👈 Fix here
+        uploadedFileName: selectedFile!.path.split('/').last,
+        awardedMarks: totalMarksAwarded ?? 0,
+        totalPossibleMarks: totalMarksPossible ?? 0,
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Upload failed: ${responseData['message'] ?? 'Unknown error'}',
+          ),
+        ),
       );
     }
   }
@@ -116,6 +338,7 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
         selectedFile = File(pickedFile.path);
       });
       debugPrint('Picked from camera: ${pickedFile.path}');
+      await uploadAnswerFile();
     }
   }
 
@@ -130,6 +353,7 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
         selectedFile = File(result.files.single.path!);
       });
       debugPrint('Picked from file: ${result.files.single.path!}');
+      await uploadAnswerFile();
     }
   }
 
@@ -438,13 +662,16 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 4),
-            const TextField(
-              keyboardType: TextInputType.number,
-              decoration: InputDecoration(
-                hintText: 'Enter marks',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
-                ),
+
+            // Show marks or placeholder if null
+            Text(
+              totalMarksAwarded != null && totalMarksPossible != null
+                  ? '$totalMarksAwarded / $totalMarksPossible'
+                  : 'Not graded yet',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
               ),
             ),
 
@@ -453,20 +680,29 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    if (currentQuestionIndex < questionsData.length - 1) {
+                onPressed: () async {
+                  await markCurrentQuestionNotGraded();
+
+                  if (currentQuestionIndex < questionsData.length - 1) {
+                    setState(() {
                       currentQuestionIndex++;
-                    } else {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const StudentResultPage(),
-                        ),
-                      );
-                    }
-                  });
+                      selectedFile = null; // Reset file for next question
+                    });
+                  } else {
+                    // Optionally navigate to Student_Result page with summaries
+                    List<Map<String, dynamic>> summaries =
+                        await loadAllQuestionSummaries();
+                    await printQuestionSummaries();
+
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const StudentResultPage(),
+                      ),
+                    );
+                  }
                 },
+
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondaryColor,
                   shape: RoundedRectangleBorder(

@@ -3,7 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '/utils/env.dart';
 
-typedef OnStudentSelected = void Function(String selectedStudent);
+typedef OnStudentSelected = void Function(String studentId, String studentName);
 
 Future<void> showStudentPicker({
   required BuildContext context,
@@ -11,29 +11,35 @@ Future<void> showStudentPicker({
   required String classId,
   required OnStudentSelected onSelected,
 }) async {
-  List<String> studentNames = [];
+  List<Map<String, String>> students = [];
 
   try {
-    final response = await http.get(Uri.parse('${Env.baseUrl}/api_student/students?class_id=$classId'));
+    final response = await http.get(
+      Uri.parse('${Env.baseUrl}/api_student/students?class_id=$classId'),
+    );
 
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['success'] == true) {
-        studentNames = (data['data'] as List)
-            .map<String>((student) => student['name'].toString())
-            .toList();
+        students =
+            (data['data'] as List)
+                .map<Map<String, String>>(
+                  (student) => {
+                    'id': student['student_id'].toString(),
+                    'name': student['name'].toString(),
+                  },
+                )
+                .toList();
       }
     } else {
       throw Exception('Failed to load students');
     }
   } catch (e) {
     // Optional: show error dialog/snackbar here
-    studentNames = [];
+    students = [];
   }
 
-  if (studentNames.isEmpty) {
-    studentNames.add("No students found");
-  }
+  if (students.isEmpty) {}
 
   showModalBottomSheet(
     context: context,
@@ -67,19 +73,28 @@ Future<void> showStudentPicker({
             SizedBox(
               height: 300,
               child: ListView.builder(
-                itemCount: studentNames.length,
+                itemCount: students.length,
                 itemBuilder: (context, index) {
-                  final student = studentNames[index];
+                  final student = students[index];
                   return ListTile(
                     title: Text(
-                      student,
+                      student['name']!,
                       style: TextStyle(
-                        color: student == selectedStudent ? Colors.blue : Colors.black,
-                        fontWeight: student == selectedStudent ? FontWeight.bold : null,
+                        color:
+                            student['name'] == selectedStudent
+                                ? Colors.blue
+                                : Colors.black,
+                        fontWeight:
+                            student['name'] == selectedStudent
+                                ? FontWeight.bold
+                                : null,
                       ),
                     ),
                     onTap: () {
-                      onSelected(student);
+                      onSelected(
+                        student['id']!,
+                        student['name']!,
+                      ); // ✅ Pass both ID and name
                       Navigator.pop(context);
                     },
                   );

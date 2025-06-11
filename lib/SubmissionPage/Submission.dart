@@ -25,11 +25,18 @@ class _SubmissionPageState extends State<SubmissionPage> {
   String? lecturerId;
   String? selectedClassId;
   String? selectedExamId;
+  String? selectedStudentId;
 
   @override
   void initState() {
     super.initState();
     _loadLecturerId(); // Load lecturer ID at start
+    clearSummary();
+  }
+
+  Future<void> clearSummary() async {
+    await secureStorage.delete(key: 'summary');
+    await secureStorage.delete(key: 'summary_json');
   }
 
   Future<void> _loadLecturerId() async {
@@ -77,24 +84,26 @@ class _SubmissionPageState extends State<SubmissionPage> {
   }
 
   void _showStudentPicker() {
-    if (selectedClassId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select a class first')),
-      );
-      return;
-    }
-
-    showStudentPicker(
-      context: context,
-      selectedStudent: selectedStudent,
-      classId: selectedClassId!,
-      onSelected: (value) {
-        setState(() {
-          selectedStudent = value;
-        });
-      },
+  if (selectedClassId == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please select a class first')),
     );
+    return;
   }
+
+  showStudentPicker(
+    context: context,
+    selectedStudent: selectedStudent,
+    classId: selectedClassId!,
+    onSelected: (studentId, studentName) {
+      setState(() {
+        selectedStudent = studentName;
+        selectedStudentId = studentId; // Store actual ID
+      });
+    },
+  );
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -285,11 +294,15 @@ class _SubmissionPageState extends State<SubmissionPage> {
               await secureStorage.write(key: 'exam_id', value: selectedExamId);
               await secureStorage.write(
                 key: 'student_id',
-                value: selectedStudent,
+                value: selectedStudentId,
               );
 
+              await secureStorage.write(key: 'class_name', value: selectedClass);
+              await secureStorage.write(key: 'exam_name', value: selectedExam);
+              await secureStorage.write(key: 'student_name', value: selectedStudent);
+
               // ✅ Navigate to Scan Answer Page
-              Navigator.push(
+              Navigator.pushReplacement(
                 context,
                 MaterialPageRoute(builder: (context) => const ScanAnswerPage()),
               );
