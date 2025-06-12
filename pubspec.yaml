@@ -37,6 +37,7 @@ dependencies:
   flutter_secure_storage: ^8.0.0
   image_picker: ^1.0.4
   file_picker: ^10.1.9
+  percent_indicator: ^4.2.5
 
   flutter:
     sdk: flutter
