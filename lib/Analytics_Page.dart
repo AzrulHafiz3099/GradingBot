@@ -7,6 +7,9 @@ import '/widget/exam_picker.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '/utils/env.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
@@ -40,6 +43,118 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Future<void> _loadLecturerId() async {
     final id = await secureStorage.read(key: 'lecturer_id');
     setState(() => lecturerId = id);
+  }
+
+  List<Map<String, dynamic>> scoreDist = [];
+  double totalMarks = 0;
+
+  Future<void> fetchScoreDistribution() async {
+    print('Fetching score distribution...');
+    print('Selected Class ID: $selectedClassId');
+    print('Selected Exam ID: $selectedExamId');
+
+    final resp = await http.get(
+      Uri.parse(
+        '${Env.baseUrl}/api_analytics/score_distribution'
+        '?class_id=$selectedClassId&exam_id=$selectedExamId',
+      ),
+    );
+
+    print('Response status: ${resp.statusCode}');
+    print('Response body: ${resp.body}');
+
+    if (resp.statusCode == 200) {
+      final d = jsonDecode(resp.body)['data'];
+      print('Parsed data: $d');
+
+      setState(() {
+        totalMarks = (d['total_marks'] as num).toDouble(); // ✅ Safe cast
+        scoreDist = List<Map<String, dynamic>>.from(d['distribution']);
+      });
+
+      print('Total Marks: $totalMarks');
+      print('Score Distribution: $scoreDist');
+    } else {
+      print('Failed to fetch score distribution.');
+    }
+  }
+
+  Future<void> fetchExamSummary() async {
+    if (selectedClassId.isEmpty || selectedExamId.isEmpty) return;
+
+    final resp = await http.get(
+      Uri.parse(
+        '${Env.baseUrl}/api_analytics/exam_summary?class_id=$selectedClassId&exam_id=$selectedExamId',
+      ),
+    );
+
+    if (resp.statusCode == 200) {
+      final summary = jsonDecode(resp.body);
+      final className = summary['class_name'];
+      final examName = summary['exam_name'];
+      final students = List<Map<String, dynamic>>.from(summary['students']);
+
+      // Generate PDF
+      final pdf = pw.Document();
+
+      pdf.addPage(
+        pw.Page(
+          build: (pw.Context context) {
+            return pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.start,
+              children: [
+                pw.Text(
+                  'Class Name: $className',
+                  style: pw.TextStyle(fontSize: 16),
+                ),
+                pw.Text(
+                  'Exam Name: $examName',
+                  style: pw.TextStyle(fontSize: 16),
+                ),
+                pw.SizedBox(height: 20),
+                pw.Row(
+                  children: [
+                    pw.Expanded(
+                      child: pw.Text(
+                        'Student Name',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                    pw.Text(
+                      'Score',
+                      style: pw.TextStyle(
+                        fontWeight: pw.FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ],
+                ),
+                pw.Divider(),
+                ...students.map((student) {
+                  return pw.Row(
+                    children: [
+                      pw.Expanded(child: pw.Text(student['Student_Name'])),
+                      pw.Text('${student['Score']}'),
+                    ],
+                  );
+                }).toList(),
+              ],
+            );
+          },
+        ),
+      );
+
+      // Let user download or share
+      await Printing.layoutPdf(
+        onLayout: (PdfPageFormat format) async => pdf.save(),
+        name: 'Exam_Summary_$examName.pdf',
+      );
+    } else {
+      print('Failed to fetch exam summary.');
+    }
   }
 
   Future<void> fetchCompletionAnalytics() async {
@@ -97,6 +212,12 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           selectedClassId = classId;
           selectedExamName = 'Choose Exam'; // Reset exam
           selectedExamId = '';
+          // Reset analytics
+          completionPercentage = 0.0;
+          studentsTaken = 0;
+          totalStudents = 0;
+          scoreDist = [];
+          totalMarks = 0.0;
         });
       },
     );
@@ -120,6 +241,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           selectedExamId = examId;
         });
         fetchCompletionAnalytics();
+        fetchScoreDistribution();
+        // _buildScoreChart(totalMarks, scoreDist);
       },
     );
   }
@@ -226,20 +349,16 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildScoreChart(total, data),
+                    _buildScoreChart(totalMarks, scoreDist),
                     const SizedBox(height: 24),
                     SizedBox(
                       width: double.infinity,
                       height: 48,
                       child: ElevatedButton(
                         onPressed:
-                            isLoading
+                            (isLoading || selectedExamId.isEmpty)
                                 ? null
-                                : () {
-                                  // Use selectedClassId, selectedExamId here if needed
-                                  print('Selected classId: $selectedClassId');
-                                  print('Selected examId: $selectedExamId');
-                                },
+                                : fetchExamSummary,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blue,
                           shape: RoundedRectangleBorder(
@@ -300,15 +419,15 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     );
   }
 
-  Widget _buildScoreChart(int total, List<int> data) {
-    final colors = [
-      Colors.cyan,
-      Colors.blueAccent,
-      Colors.indigo,
-      Colors.indigo[900]!,
-    ];
-    final totalScore = data.reduce((a, b) => a + b);
-
+  Widget _buildScoreChart(double totalMarks, List<Map<String, dynamic>> dist) {
+    final totalStudents = dist.fold<int>(
+      0,
+      (sum, e) => sum + int.parse(e['count'].toString()),
+    );
+    final colors = List.generate(
+      dist.length,
+      (i) => Colors.primaries[i % Colors.primaries.length],
+    );
     return SizedBox(
       height: 250,
       width: 250,
@@ -316,21 +435,17 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         alignment: Alignment.center,
         children: [
           CircularPercentIndicator(
-            radius: 110.0,
-            lineWidth: 34.0,
-            percent: totalScore / total,
-            circularStrokeCap: CircularStrokeCap.round,
+            radius: 110,
+            lineWidth: 34,
+            percent: 1.0,
             center: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  "$totalScore / $total",
-                  style: const TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  "$totalMarks",
+                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
-                const Text('Total Score', style: TextStyle(fontSize: 14)),
+                Text('Max Score'),
               ],
             ),
             progressColor: Colors.transparent,
@@ -338,7 +453,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           ),
           Positioned.fill(
             child: CustomPaint(
-              painter: _MultiSegmentPainter(data, total, colors),
+              painter: _MultiSegmentPainter(dist, totalStudents, colors),
             ),
           ),
         ],
@@ -348,62 +463,61 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
 }
 
 class _MultiSegmentPainter extends CustomPainter {
-  final List<int> scores;
+  // final List<int> scores;
+  final List<Map<String, dynamic>> dist;
   final int total;
   final List<Color> colors;
 
-  _MultiSegmentPainter(this.scores, this.total, this.colors);
+  _MultiSegmentPainter(this.dist, this.total, this.colors);
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = size.width / 2;
     final strokeWidth = 18.0;
-    double startAngle = -90.0;
+    final rect = Rect.fromCircle(
+      center: center,
+      radius: radius - strokeWidth / 2,
+    );
+    double startAngle = -pi / 2;
 
     final paint =
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = strokeWidth
-          ..strokeCap = StrokeCap.round;
+          ..strokeCap = StrokeCap.butt;
 
     final textPainter = TextPainter(
       textAlign: TextAlign.center,
       textDirection: TextDirection.ltr,
     );
 
-    for (int i = 0; i < scores.length; i++) {
-      final sweepAngle = 360 * (scores[i] / total);
-      final angleRad = radians(startAngle + sweepAngle / 2);
+    for (int i = 0; i < dist.length; i++) {
+      final count = int.parse(dist[i]['count'].toString());
+      final scoreLabel = dist[i]['score'].toString().split('/').first.trim();
+      final sweepAngle = (count / total) * 2 * pi;
 
-      paint.color = colors[i % colors.length];
-      canvas.drawArc(
-        Rect.fromCircle(center: center, radius: radius),
-        radians(startAngle),
-        radians(sweepAngle),
-        false,
-        paint,
-      );
+      paint.color = colors[i];
+      canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
 
-      final percent = (scores[i] / total) * 100;
-      final label = '${percent.toStringAsFixed(0)}%';
-      final labelRadius = radius - strokeWidth * 1.9;
-
+      // Calculate position for the label
+      final labelAngle = startAngle + sweepAngle / 2;
+      final labelRadius = radius - strokeWidth * 2.0; // move label more inside
       final offset = Offset(
-        center.dx + labelRadius * cos(angleRad) - 12,
-        center.dy + labelRadius * sin(angleRad) - 8,
+        center.dx + labelRadius * cos(labelAngle),
+        center.dy + labelRadius * sin(labelAngle),
       );
 
+      // Draw score text
       textPainter.text = TextSpan(
-        text: label,
-        style: const TextStyle(
-          color: Colors.black,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+        text: scoreLabel,
+        style: const TextStyle(fontSize: 14, color: Colors.black),
       );
-      textPainter.layout();
-      textPainter.paint(canvas, offset);
+      textPainter.layout(minWidth: 0, maxWidth: 60);
+      textPainter.paint(
+        canvas,
+        offset - Offset(textPainter.width / 2, textPainter.height / 2),
+      );
 
       startAngle += sweepAngle;
     }
