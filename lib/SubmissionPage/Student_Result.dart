@@ -232,142 +232,148 @@ class _StudentResultPageState extends State<StudentResultPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        surfaceTintColor: Colors.white,
+    return WillPopScope(
+      onWillPop: () async => false, // 🔒 Prevent system back navigation
+      child: Scaffold(
         backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.secondaryColor),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text(
-          'Student Submission',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: AppColors.secondaryColor,
+        appBar: AppBar(
+          automaticallyImplyLeading: false, // ❌ Removes default back button
+          surfaceTintColor: Colors.white,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          leading: null, // Optional: remove this or set to null
+          title: const Text(
+            'Student Submission',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppColors.secondaryColor,
+            ),
           ),
         ),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        child: ListView(
-          children: [
-            SizedBox(height: 10),
-            Text('Class', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            SizedBox(height: 4),
-            TextField(
-              controller: _classController,
-              readOnly: true,
-              decoration: InputDecoration(
-                hintText: 'Enter class',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+        body: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: ListView(
+            children: [
+              SizedBox(height: 10),
+              Text('Class', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              SizedBox(height: 4),
+              TextField(
+                controller: _classController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter class',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: 16),
-            Text('Exam', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            SizedBox(height: 4),
-            TextField(
-              controller: _examController,
-              readOnly: true,
-              decoration: InputDecoration(
-                hintText: 'Enter exam name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+              SizedBox(height: 16),
+              Text('Exam', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              SizedBox(height: 4),
+              TextField(
+                controller: _examController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter exam name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Student Name',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            SizedBox(height: 4),
-            TextField(
-              controller: _studentController,
-              readOnly: true,
-              decoration: InputDecoration(
-                hintText: 'Enter student name',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+              SizedBox(height: 16),
+              Text(
+                'Student Name',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              SizedBox(height: 4),
+              TextField(
+                controller: _studentController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter student name',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: 16),
-            Text(
-              'Total Marks',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            SizedBox(height: 4),
-            TextField(
-              controller: _totalMarksController,
-              readOnly: true,
-              decoration: InputDecoration(
-                hintText: 'Enter total marks',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+              SizedBox(height: 16),
+              Text(
+                'Total Marks',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              SizedBox(height: 4),
+              TextField(
+                controller: _totalMarksController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter total marks',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: 16),
-            Text('Score', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            SizedBox(height: 4),
-            TextField(
-              controller: _scoreController,
-              readOnly: true,
-              decoration: InputDecoration(
-                hintText: 'Enter student score',
+              SizedBox(height: 16),
+              Text('Score', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              SizedBox(height: 4),
+              TextField(
+                controller: _scoreController,
+                readOnly: true,
+                decoration: InputDecoration(
+                  hintText: 'Enter student score',
 
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.all(Radius.circular(10)),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(height: 32),
-          ],
+              SizedBox(height: 32),
+            ],
+          ),
         ),
-      ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-        child: SizedBox(
-          width: double.infinity,
-          height: 48,
-          child: ElevatedButton(
-            onPressed: () async {
-              if (submissionId != null) {
-                final resultId = await _saveResult(submissionId!);
+        bottomNavigationBar: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: ElevatedButton(
+              onPressed: () async {
+                if (submissionId != null) {
+                  final resultId = await _saveResult(submissionId!);
 
-                if (resultId != null) {
-                  if (!mounted) return;
-                  Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(builder: (context) => const MainScreen()),
-              );
+                  if (resultId != null) {
+                    if (!mounted) return;
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const MainScreen(),
+                      ),
+                    );
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('❌ Failed to save result.')),
+                    );
+                  }
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('❌ Failed to save result.')),
+                    const SnackBar(
+                      content: Text('❌ Submission ID not available.'),
+                    ),
                   );
                 }
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('❌ Submission ID not available.'),
-                  ),
-                );
-              }
-            },
+              },
 
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.secondaryColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.secondaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Confirm',
+                style: TextStyle(color: Colors.white),
               ),
             ),
-            child: const Text('Confirm', style: TextStyle(color: Colors.white)),
           ),
         ),
       ),

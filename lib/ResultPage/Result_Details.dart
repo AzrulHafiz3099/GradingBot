@@ -3,6 +3,10 @@ import '/utils/colors.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '/utils/env.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:pdf/pdf.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 class ResultDetailsPage extends StatefulWidget {
   final String studentId;
@@ -24,6 +28,76 @@ class _ResultDetailsPageState extends State<ResultDetailsPage> {
     super.initState();
     _fetchStudentResult();
   }
+
+  Future<void> _downloadResultSummary() async {
+  if (studentResult == null) return;
+
+  final pdf = pw.Document();
+
+  final imageLogo = pw.MemoryImage(
+    (await rootBundle.load('assets/logo.png')).buffer.asUint8List(),
+  );
+
+  pdf.addPage(
+    pw.Page(
+      build: (pw.Context context) {
+        return pw.Column(
+          crossAxisAlignment: pw.CrossAxisAlignment.start,
+          children: [
+            pw.Row(
+              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              children: [
+                pw.Text('Result Summary', style: pw.TextStyle(fontSize: 20)),
+                pw.Image(imageLogo, height: 60, width: 60),
+              ],
+            ),
+            pw.Divider(),
+            pw.SizedBox(height: 10),
+            _buildPdfText('Student Name', studentResult?['student_name']),
+            _buildPdfText('Class', studentResult?['class_name']),
+            _buildPdfText('Exam', studentResult?['exam_name']),
+            _buildPdfText('Phone No.', studentResult?['phone_number']),
+            _buildPdfText('Score', studentResult?['score'].toString()),
+            _buildPdfText('Timestamp', studentResult?['timestamp']),
+            pw.SizedBox(height: 10),
+            pw.Text('Answer Summary:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+            pw.SizedBox(height: 5),
+            pw.Text(
+              studentResult?['summary'] ?? '-',
+              style: pw.TextStyle(fontSize: 12),
+            ),
+          ],
+        );
+      },
+    ),
+  );
+
+  await Printing.layoutPdf(
+    onLayout: (PdfPageFormat format) async => pdf.save(),
+    name: 'Result_Summary_${studentResult?['student_name'] ?? 'Student'}.pdf',
+  );
+}
+
+pw.Widget _buildPdfText(String label, String? value) {
+  return pw.Padding(
+    padding: const pw.EdgeInsets.only(bottom: 6),
+    child: pw.RichText(
+      text: pw.TextSpan(
+        children: [
+          pw.TextSpan(
+            text: '$label: ',
+            style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 12),
+          ),
+          pw.TextSpan(
+            text: value ?? '-',
+            style: pw.TextStyle(fontSize: 12),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
 
   Future<void> _fetchStudentResult() async {
     try {
@@ -96,9 +170,7 @@ class _ResultDetailsPageState extends State<ResultDetailsPage> {
                         _buildTextField(label: 'Score', value: studentResult?['score'] ?? ''),
                         const SizedBox(height: 30),
                         ElevatedButton(
-                          onPressed: () {
-                            // Handle download
-                          },
+                          onPressed: _downloadResultSummary,
                           style: ElevatedButton.styleFrom(
                             backgroundColor: secondaryColor,
                             shape: RoundedRectangleBorder(

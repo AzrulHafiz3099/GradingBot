@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -18,7 +19,8 @@ class AnalyticsPage extends StatefulWidget {
   State<AnalyticsPage> createState() => _AnalyticsPageState();
 }
 
-class _AnalyticsPageState extends State<AnalyticsPage> {
+class _AnalyticsPageState extends State<AnalyticsPage> with TickerProviderStateMixin {
+
   final secureStorage = const FlutterSecureStorage();
 
   String selectedClassName = 'Choose Class';
@@ -34,11 +36,25 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   final int total = 10;
   final List<int> data = [4, 3, 2, 1];
 
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
+
   @override
-  void initState() {
-    super.initState();
-    _loadLecturerId();
-  }
+void initState() {
+  super.initState();
+  _loadLecturerId();
+
+  _animationController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1000),
+  );
+
+  _animation = CurvedAnimation(
+    parent: _animationController,
+    curve: Curves.easeOut,
+  );
+}
 
   Future<void> _loadLecturerId() async {
     final id = await secureStorage.read(key: 'lecturer_id');
@@ -71,6 +87,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         totalMarks = (d['total_marks'] as num).toDouble(); // ✅ Safe cast
         scoreDist = List<Map<String, dynamic>>.from(d['distribution']);
       });
+      _animationController.reset();
+      _animationController.forward();
+
 
       print('Total Marks: $totalMarks');
       print('Score Distribution: $scoreDist');
@@ -97,21 +116,124 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       // Generate PDF
       final pdf = pw.Document();
 
+      final imageLogo = pw.MemoryImage(
+        (await rootBundle.load('assets/logo.png')).buffer.asUint8List(),
+      );
+
       pdf.addPage(
         pw.Page(
           build: (pw.Context context) {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
+                  children: [
+                    pw.Text('Exam Summary', style: pw.TextStyle(fontSize: 20)),
+                    pw.Spacer(),
+                    pw.Image(
+                      imageLogo,
+                      height: 60, // Adjust height to match text height visually
+                      width: 60,
+                    ),
+                  ],
+                ),
+                pw.Divider(
+                  thickness: 1,
+                ), // You can increase thickness if needed
+                pw.SizedBox(height: 16),
+                pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: 'Class Name: ',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.TextSpan(
+                        text: className,
+                        style: pw.TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: 'Class Code: ',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.TextSpan(
+                        text: selectedClassName,
+                        style: pw.TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 4), // optional spacing
+
+                pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: 'Exam Name: ',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.TextSpan(
+                        text: examName,
+                        style: pw.TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                // Completion Summary
                 pw.Text(
-                  'Class Name: $className',
-                  style: pw.TextStyle(fontSize: 16),
+                  'Completion Summary:',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
                 ),
                 pw.Text(
-                  'Exam Name: $examName',
-                  style: pw.TextStyle(fontSize: 16),
+                  'Completed: $studentsTaken / $totalStudents students '
+                  '(${(completionPercentage * 100).toStringAsFixed(0)}%)',
                 ),
+                pw.SizedBox(height: 12),
+
+                // Score Distribution
+                pw.Text(
+                  'Score Distribution:',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                ...scoreDist.map((entry) {
+                  return pw.Text(
+                    '${entry['score']} = ${entry['count']} student(s)',
+                  );
+                }),
+
                 pw.SizedBox(height: 20),
+                pw.Text(
+                  'Student Scores:',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 12),
                 pw.Row(
                   children: [
                     pw.Expanded(
@@ -119,7 +241,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                         'Student Name',
                         style: pw.TextStyle(
                           fontWeight: pw.FontWeight.bold,
-                          fontSize: 14,
+                          fontSize: 13,
                         ),
                       ),
                     ),
@@ -127,7 +249,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       'Score',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 13,
                       ),
                     ),
                   ],
@@ -325,6 +447,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                             progressColor: Colors.blue,
                             backgroundColor: Colors.white,
                             circularStrokeCap: CircularStrokeCap.round,
+                            animation: true, // 🔥 Enables animation
+                            animationDuration: 1000, // in milliseconds
                           ),
                           const SizedBox(width: 12),
                           Column(
@@ -420,55 +544,71 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   }
 
   Widget _buildScoreChart(double totalMarks, List<Map<String, dynamic>> dist) {
-    final totalStudents = dist.fold<int>(
-      0,
-      (sum, e) => sum + int.parse(e['count'].toString()),
-    );
-    final colors = List.generate(
-      dist.length,
-      (i) => Colors.primaries[i % Colors.primaries.length],
-    );
-    return SizedBox(
-      height: 250,
-      width: 250,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CircularPercentIndicator(
-            radius: 110,
-            lineWidth: 34,
-            percent: 1.0,
-            center: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  "$totalMarks",
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+  final totalStudents = dist.fold<int>(
+    0,
+    (sum, e) => sum + int.parse(e['count'].toString()),
+  );
+  final colors = List.generate(
+    dist.length,
+    (i) => Colors.primaries[i % Colors.primaries.length],
+  );
+
+  return SizedBox(
+    height: 250,
+    width: 250,
+    child: Stack(
+      alignment: Alignment.center,
+      children: [
+        CircularPercentIndicator(
+          radius: 110,
+          lineWidth: 34,
+          percent: 1.0,
+          center: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                "$totalMarks",
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              ),
+              const Text('Max Score'),
+            ],
+          ),
+          progressColor: Colors.transparent,
+          backgroundColor: Colors.grey.shade200,
+          animation: true,
+          animationDuration: 1000,
+        ),
+        Positioned.fill(
+          child: AnimatedBuilder(
+            animation: _animation,
+            builder: (context, child) {
+              return CustomPaint(
+                painter: _MultiSegmentPainter(
+                  dist,
+                  totalStudents,
+                  colors,
+                  _animation.value,
                 ),
-                Text('Max Score'),
-              ],
-            ),
-            progressColor: Colors.transparent,
-            backgroundColor: Colors.grey.shade200,
+              );
+            },
           ),
-          Positioned.fill(
-            child: CustomPaint(
-              painter: _MultiSegmentPainter(dist, totalStudents, colors),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
+}
+
+
+
 class _MultiSegmentPainter extends CustomPainter {
-  // final List<int> scores;
   final List<Map<String, dynamic>> dist;
   final int total;
   final List<Color> colors;
+  final double progress;
 
-  _MultiSegmentPainter(this.dist, this.total, this.colors);
+  _MultiSegmentPainter(this.dist, this.total, this.colors, this.progress);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -481,11 +621,10 @@ class _MultiSegmentPainter extends CustomPainter {
     );
     double startAngle = -pi / 2;
 
-    final paint =
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = strokeWidth
-          ..strokeCap = StrokeCap.butt;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.butt;
 
     final textPainter = TextPainter(
       textAlign: TextAlign.center,
@@ -495,35 +634,35 @@ class _MultiSegmentPainter extends CustomPainter {
     for (int i = 0; i < dist.length; i++) {
       final count = int.parse(dist[i]['count'].toString());
       final scoreLabel = dist[i]['score'].toString().split('/').first.trim();
-      final sweepAngle = (count / total) * 2 * pi;
+      final sweepAngle = (count / total) * 2 * pi * progress;
 
       paint.color = colors[i];
       canvas.drawArc(rect, startAngle, sweepAngle, false, paint);
 
-      // Calculate position for the label
+      // Label angle & offset
       final labelAngle = startAngle + sweepAngle / 2;
-      final labelRadius = radius - strokeWidth * 2.0; // move label more inside
+      final labelRadius = radius - strokeWidth * 2.0;
       final offset = Offset(
         center.dx + labelRadius * cos(labelAngle),
         center.dy + labelRadius * sin(labelAngle),
       );
 
       // Draw score text
-      textPainter.text = TextSpan(
-        text: scoreLabel,
-        style: const TextStyle(fontSize: 14, color: Colors.black),
-      );
-      textPainter.layout(minWidth: 0, maxWidth: 60);
-      textPainter.paint(
-        canvas,
-        offset - Offset(textPainter.width / 2, textPainter.height / 2),
-      );
+      if (progress > 0.98) {
+        textPainter.text = TextSpan(
+          text: scoreLabel,
+          style: const TextStyle(fontSize: 14, color: Colors.black),
+        );
+        textPainter.layout(minWidth: 0, maxWidth: 60);
+        textPainter.paint(
+          canvas,
+          offset - Offset(textPainter.width / 2, textPainter.height / 2),
+        );
+      }
 
       startAngle += sweepAngle;
     }
   }
-
-  double radians(double degrees) => degrees * pi / 180;
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => true;

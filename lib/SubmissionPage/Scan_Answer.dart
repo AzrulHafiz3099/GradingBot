@@ -41,8 +41,8 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
   }
 
   Future<void> clearSummary() async {
-  await secureStorage.delete(key: 'summary');
-}
+    await secureStorage.delete(key: 'summary');
+  }
 
   File? selectedFile;
 
@@ -84,62 +84,65 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
   }
 
   Future<void> appendToSummary({
-  required int questionNumber,
-  required String questionId,
-  required String questionText,
-  required List<Map<String, dynamic>> schemes, // scheme_id, text, marks
-  required String uploadedFileName,
-  required double awardedMarks,
-  required double totalPossibleMarks,
-}) async {
-  // Format this question's summary
-  StringBuffer questionSummary = StringBuffer();
+    required int questionNumber,
+    required String questionId,
+    required String questionText,
+    required List<Map<String, dynamic>> schemes, // scheme_id, text, marks
+    required String uploadedFileName,
+    required double awardedMarks,
+    required double totalPossibleMarks,
+  }) async {
+    // Format this question's summary
+    StringBuffer questionSummary = StringBuffer();
 
-  questionSummary.writeln('Question $questionNumber\n');
-  questionSummary.writeln('Question ID : $questionId');
-  questionSummary.writeln('Question Text : $questionText');
-  questionSummary.writeln('Total Schemes : ${schemes.length}');
+    questionSummary.writeln('Question $questionNumber\n');
+    questionSummary.writeln('Question ID : $questionId');
+    questionSummary.writeln('Question Text : $questionText');
+    questionSummary.writeln('Total Schemes : ${schemes.length}');
 
-  for (int i = 0; i < schemes.length; i++) {
-    final scheme = schemes[i];
-    questionSummary.writeln('Scheme ID ${i + 1} : ${scheme['scheme_id']}');
-    questionSummary.writeln('Scheme Text : ${scheme['scheme_text']}');
-    questionSummary.writeln('Marks : ${scheme['marks']}');
+    for (int i = 0; i < schemes.length; i++) {
+      final scheme = schemes[i];
+      questionSummary.writeln('Scheme ID ${i + 1} : ${scheme['scheme_id']}');
+      questionSummary.writeln('Scheme Text : ${scheme['scheme_text']}');
+      questionSummary.writeln('Marks : ${scheme['marks']}');
+    }
+
+    questionSummary.writeln('Uploaded File : $uploadedFileName');
+    questionSummary.writeln(
+      'Total Marks Awarded : $awardedMarks/$totalPossibleMarks\n',
+    );
+
+    // Read existing summary
+    String? existingSummary = await secureStorage.read(key: 'summary');
+
+    // Append this question summary
+    String newSummary = (existingSummary ?? '') + questionSummary.toString();
+
+    // Print the summary in terminal
+    print("---- Appended Summary ----\n$newSummary");
+
+    // Save back to secure storage
+    await secureStorage.write(key: 'summary', value: newSummary);
+
+    // Also store structured JSON
+    String? jsonRaw = await secureStorage.read(key: 'summary_json');
+    List<dynamic> summaryJson = jsonRaw != null ? json.decode(jsonRaw) : [];
+
+    summaryJson.add({
+      'question_number': questionNumber,
+      'question_id': questionId,
+      'question_text': questionText,
+      'uploaded_file': uploadedFileName,
+      'schemes': schemes,
+      'awarded_marks': awardedMarks,
+      'total_marks': totalPossibleMarks,
+    });
+
+    await secureStorage.write(
+      key: 'summary_json',
+      value: json.encode(summaryJson),
+    );
   }
-
-  questionSummary.writeln('Uploaded File : $uploadedFileName');
-  questionSummary.writeln('Total Marks Awarded : $awardedMarks/$totalPossibleMarks\n');
-
-  // Read existing summary
-  String? existingSummary = await secureStorage.read(key: 'summary');
-
-  // Append this question summary
-  String newSummary = (existingSummary ?? '') + questionSummary.toString();
-
-  // Print the summary in terminal
-  print("---- Appended Summary ----\n$newSummary");
-
-  // Save back to secure storage
-  await secureStorage.write(key: 'summary', value: newSummary);
-
-// Also store structured JSON
-String? jsonRaw = await secureStorage.read(key: 'summary_json');
-List<dynamic> summaryJson = jsonRaw != null ? json.decode(jsonRaw) : [];
-
-summaryJson.add({
-  'question_number': questionNumber,
-  'question_id': questionId,
-  'question_text': questionText,
-  'uploaded_file': uploadedFileName,
-  'schemes': schemes,
-  'awarded_marks': awardedMarks,
-  'total_marks': totalPossibleMarks,
-});
-
-await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
-  
-}
-
 
   Future<void> markCurrentQuestionNotGraded() async {
     final currentQuestion = questionsData[currentQuestionIndex];
@@ -234,9 +237,8 @@ await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
             )
             .toList();
 
-      print('Selected Scheme Details before upload:');
-      print(json.encode(selectedSchemeDetails));
-      
+    print('Selected Scheme Details before upload:');
+    print(json.encode(selectedSchemeDetails));
 
     final uri = Uri.parse('${Env.baseUrl}/api_scan/upload');
     final request = http.MultipartRequest('POST', uri);
@@ -257,16 +259,19 @@ await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
     final responseData = jsonDecode(response.body);
 
     if (response.statusCode == 200 && responseData['success']) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('File uploaded and processed successfully'),
-        ),
-      );
+      // ScaffoldMessenger.of(context).showSnackBar(
+      //   const SnackBar(
+      //     content: Text('File uploaded and processed successfully'),
+      //   ),
+      // );
 
       // First parse marks info and update UI
       setState(() {
-        totalMarksAwarded = responseData['total_awarded_marks'] ?? 0;
-        totalMarksPossible = responseData['total_possible_marks'] ?? 0;
+        totalMarksAwarded =
+            (responseData['total_awarded_marks'] ?? 0 as num).toDouble();
+        totalMarksPossible =
+            (responseData['total_possible_marks'] ?? 0 as num).toDouble();
+
         print('Marks awarded: $totalMarksAwarded / $totalMarksPossible');
         print(responseData);
       });
@@ -297,6 +302,16 @@ await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
   }
 
   void _showPickerOptions() {
+    if ((selectedSchemeIds[currentQuestionIndex]?.isEmpty ?? true)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Please select at least one scheme before uploading a file.',
+          ),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -401,14 +416,18 @@ await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
   }
 
   void toggleSchemeSelection(String schemeId) {
-    final selected = selectedSchemeIds[currentQuestionIndex] ?? [];
+    final currentSelected = List<String>.from(
+      selectedSchemeIds[currentQuestionIndex] ?? [],
+    );
+
+    if (currentSelected.contains(schemeId)) {
+      currentSelected.remove(schemeId);
+    } else {
+      currentSelected.add(schemeId);
+    }
+
     setState(() {
-      if (selected.contains(schemeId)) {
-        selected.remove(schemeId);
-      } else {
-        selected.add(schemeId);
-      }
-      selectedSchemeIds[currentQuestionIndex] = selected;
+      selectedSchemeIds[currentQuestionIndex] = currentSelected;
     });
   }
 
@@ -663,10 +682,9 @@ await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
             ),
             const SizedBox(height: 4),
 
-            // Show marks or placeholder if null
             Text(
-              totalMarksAwarded != null && totalMarksPossible != null
-                  ? '$totalMarksAwarded / $totalMarksPossible'
+              (totalMarksAwarded != null && totalMarksPossible != null)
+                  ? '${totalMarksAwarded!.toStringAsFixed(1)} / ${totalMarksPossible!.toStringAsFixed(1)}'
                   : 'Not graded yet',
               style: const TextStyle(
                 fontSize: 18,
@@ -680,29 +698,29 @@ await secureStorage.write(key: 'summary_json', value: json.encode(summaryJson));
               width: double.infinity,
               height: 48,
               child: ElevatedButton(
-                onPressed: () async {
-                  await markCurrentQuestionNotGraded();
+                onPressed:
+                    totalMarksAwarded == null || totalMarksPossible == null
+                        ? null // disabled
+                        : () async {
+                          await markCurrentQuestionNotGraded();
 
-                  if (currentQuestionIndex < questionsData.length - 1) {
-                    setState(() {
-                      currentQuestionIndex++;
-                      selectedFile = null; // Reset file for next question
-                    });
-                  } else {
-                    // Optionally navigate to Student_Result page with summaries
-                    List<Map<String, dynamic>> summaries =
-                        await loadAllQuestionSummaries();
-                    await printQuestionSummaries();
-
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const StudentResultPage(),
-                      ),
-                    );
-                  }
-                },
-
+                          if (currentQuestionIndex < questionsData.length - 1) {
+                            setState(() {
+                              currentQuestionIndex++;
+                              selectedFile = null;
+                            });
+                          } else {
+                            List<Map<String, dynamic>> summaries =
+                                await loadAllQuestionSummaries();
+                            await printQuestionSummaries();
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const StudentResultPage(),
+                              ),
+                            );
+                          }
+                        },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.secondaryColor,
                   shape: RoundedRectangleBorder(
