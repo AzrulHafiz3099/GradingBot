@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'Home_Page.dart';
 import 'Analytics_Page.dart';
 import 'Manage_Page.dart';
-import 'Profile_Page.dart';
+import 'Setting_Page.dart';
 import 'widget/custom_button_nav.dart';
 
 class MainScreen extends StatefulWidget {
@@ -19,7 +19,7 @@ class _MainScreenState extends State<MainScreen> {
     HomePage(),
     AnalyticsPage(),
     ManagePage(),
-    ProfilePage(),
+    SettingPage(),
   ];
 
   void _onTabTapped(int index) {
