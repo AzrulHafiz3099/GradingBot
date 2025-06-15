@@ -16,9 +16,6 @@ class _SignUpPageState extends State<SignUpPage> {
   bool _obscurePassword = true;
   bool _isLoading = false;
 
-  
-
-
   // Controllers to get user input
   final TextEditingController _fullNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -44,10 +41,10 @@ class _SignUpPageState extends State<SignUpPage> {
     final institution = _institutionController.text.trim();
 
     bool isValidEmail(String email) {
-  // Basic email regex pattern
-  final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-  return emailRegex.hasMatch(email);
-}
+      // Basic email regex pattern
+      final emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+      return emailRegex.hasMatch(email);
+    }
 
     if (fullName.isEmpty ||
         email.isEmpty ||
@@ -58,21 +55,33 @@ class _SignUpPageState extends State<SignUpPage> {
       return;
     }
 
+    if (password.length < 8) {
+      _showMessage('Password must be at least 8 characters long');
+      return;
+    }
+
+    if (!RegExp(r'^\d{10}$').hasMatch(phone)) {
+      _showMessage('Phone number must be 10 digits and numbers only');
+      return;
+    }
+
     if (!isValidEmail(email)) {
-    _showMessage('Please enter a valid email address');
-    return;
-  }
+      _showMessage('Please enter a valid email address');
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     // Add this print to see the JSON body
-  print(jsonEncode({
-    'Lecturer_Name': fullName,
-    'Email': email,
-    'Password': password,
-    'Phone_Number': phone,
-    'Institution_Name': institution,
-  }));
+    print(
+      jsonEncode({
+        'Lecturer_Name': fullName,
+        'Email': email,
+        'Password': password,
+        'Phone_Number': phone,
+        'Institution_Name': institution,
+      }),
+    );
 
     try {
       final url = Uri.parse('${Env.baseUrl}/register');
@@ -89,6 +98,19 @@ class _SignUpPageState extends State<SignUpPage> {
         }),
       );
 
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 409) {
+        _showMessage(
+          data['detail'],
+        ); // It will show "Email already registered", etc.
+      } else if (response.statusCode == 200) {
+        _showMessage("Registration successful");
+        Navigator.pop(context);
+      } else {
+        _showMessage("Error: ${data['detail'] ?? 'Unexpected error'}");
+      }
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
 
@@ -102,7 +124,7 @@ class _SignUpPageState extends State<SignUpPage> {
           _showMessage(data['message'] ?? 'Registration failed');
         }
       } else {
-        _showMessage('Server error: ${response.statusCode}');
+        // _showMessage('Server error: ${response.statusCode}');
       }
     } catch (e) {
       _showMessage('Network error: $e');
@@ -191,12 +213,18 @@ class _SignUpPageState extends State<SignUpPage> {
               ),
               const SizedBox(height: 12),
 
-              _buildTextField(
+              TextField(
                 controller: _phoneController,
-                hint: 'Phone Number',
-                icon: Icons.phone,
-                scaleFactor: scaleFactor,
+                keyboardType: TextInputType.number,
+                decoration: InputDecoration(
+                  hintText: 'Phone Number (0123456789)',
+                  prefixIcon: Icon(Icons.phone),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12 * scaleFactor),
+                  ),
+                ),
               ),
+
               const SizedBox(height: 12),
 
               _buildTextField(

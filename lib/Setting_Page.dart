@@ -152,6 +152,23 @@ class _SettingPageState extends State<SettingPage> {
                           'Edit profile information',
                         ),
                       ),
+                      settingTile(
+                          Icons.notifications,
+                          'Notification',
+                          trailing: Transform.scale(
+                            scale: 0.8,
+                            child: Switch(
+                              value: isNotificationOn,
+                              onChanged: (value) {
+                                setState(() {
+                                  isNotificationOn = value;
+                                });
+                              },
+                              activeColor: Colors.white,
+                              inactiveThumbColor: Colors.grey,
+                            ),
+                          ),
+                        ),
 
                       settingTile(
                         Icons.language,
@@ -174,7 +191,7 @@ class _SettingPageState extends State<SettingPage> {
                               ),
                             );
                           },
-                          child: settingTile(Icons.lock, 'Password'),
+                          child: settingTile(Icons.lock, 'Reset Password'),
                         ),
                         settingTile(
                           Icons.color_lens,

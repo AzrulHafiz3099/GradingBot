@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '/utils/env.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'SettingPage/Password/ForgotPassword.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -22,7 +23,7 @@ class _SignInPageState extends State<SignInPage> {
   final TextEditingController _passwordController = TextEditingController();
   bool _isPasswordVisible = false;
   bool _isLoading = false;
-  
+
   bool? _isConnected; // null = loading, true = connected, false = disconnected
 
   @override
@@ -32,16 +33,15 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<void> _checkConnection() async {
-  try {
-    await testConnection();
-    setState(() => _isConnected = true);
-    print('✅ Connection to backend succeeded.');
-  } catch (e) {
-    setState(() => _isConnected = false);
-    print('❌ Connection to backend failed: $e');
+    try {
+      await testConnection();
+      setState(() => _isConnected = true);
+      print('✅ Connection to backend succeeded.');
+    } catch (e) {
+      setState(() => _isConnected = false);
+      print('❌ Connection to backend failed: $e');
+    }
   }
-}
-
 
   @override
   void dispose() {
@@ -51,68 +51,67 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<void> _handleSignIn() async {
-  final emailOrId = _emailOrIdController.text.trim();
-  final password = _passwordController.text.trim();
+    final emailOrId = _emailOrIdController.text.trim();
+    final password = _passwordController.text.trim();
 
-  if (emailOrId.isEmpty || password.isEmpty) {
-    _showMessage('Please enter your Email/Username and Password');
-    return;
-  }
+    if (emailOrId.isEmpty || password.isEmpty) {
+      _showMessage('Please enter your Email/Username and Password');
+      return;
+    }
 
-  if (_isConnected != true) {
-    _showMessage('Not connected to backend. Please try again later.');
-    return;
-  }
+    if (_isConnected != true) {
+      _showMessage('Not connected to backend. Please try again later.');
+      return;
+    }
 
-  setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-  try {
-    final url = Uri.parse('${Env.baseUrl}/login');
+    try {
+      final url = Uri.parse('${Env.baseUrl}/login');
 
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'emailOrId': emailOrId,
-        'password': password,
-      }),
-    );
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'emailOrId': emailOrId, 'password': password}),
+      );
 
-    if (response.statusCode == 200) {
-      final data = jsonDecode(response.body);
-      print('Response from backend: $data');
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        print('Response from backend: $data');
 
-      if (data['success'] == true) {
-        // Save lecturer_id securely
-        if (data.containsKey('lecturer_id')) {
-          await secureStorage.write(key: 'lecturer_id', value: data['lecturer_id']);
+        if (data['success'] == true) {
+          // Save lecturer_id securely
+          if (data.containsKey('lecturer_id')) {
+            await secureStorage.write(
+              key: 'lecturer_id',
+              value: data['lecturer_id'],
+            );
+          }
+
+          setState(() => _isLoading = false);
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MainScreen()),
+          );
+        } else {
+          setState(() => _isLoading = false);
+          _showMessage(data['message'] ?? 'Invalid Email/Username or Password');
         }
-
-        setState(() => _isLoading = false);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MainScreen()),
-        );
       } else {
         setState(() => _isLoading = false);
-        _showMessage(data['message'] ?? 'Invalid Email/Username or Password');
+        _showMessage('Server error: ${response.statusCode}');
       }
-    } else {
+    } catch (e) {
       setState(() => _isLoading = false);
-      _showMessage('Server error: ${response.statusCode}');
+      _showMessage('Network error: $e');
+      print('SignIn error: $e');
     }
-  } catch (e) {
-    setState(() => _isLoading = false);
-    _showMessage('Network error: $e');
-    print('SignIn error: $e');
   }
-}
-
 
   void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -122,9 +121,7 @@ class _SignInPageState extends State<SignInPage> {
 
     if (_isConnected == null) {
       // still checking connection
-      return Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
+      return Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
     if (_isConnected == false) {
@@ -150,10 +147,7 @@ class _SignInPageState extends State<SignInPage> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 0),
-                Image.asset(
-                  'assets/logo.png',
-                  height: 140 * scaleFactor,
-                ),
+                Image.asset('assets/logo.png', height: 140 * scaleFactor),
                 const SizedBox(height: 10),
                 const SizedBox(height: 40),
                 Text(
@@ -170,7 +164,7 @@ class _SignInPageState extends State<SignInPage> {
                 TextField(
                   controller: _emailOrIdController,
                   decoration: InputDecoration(
-                    hintText: 'Email or User Name',
+                    hintText: 'Email or Phone Number',
                     prefixIcon: Icon(Icons.person_outline),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12 * scaleFactor),
@@ -188,7 +182,9 @@ class _SignInPageState extends State<SignInPage> {
                     prefixIcon: Icon(Icons.lock_outline),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        _isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                        _isPasswordVisible
+                            ? Icons.visibility
+                            : Icons.visibility_off,
                       ),
                       onPressed: () {
                         setState(() {
@@ -205,7 +201,14 @@ class _SignInPageState extends State<SignInPage> {
                 Align(
                   alignment: Alignment.centerRight,
                   child: TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const ForgotPasswordPage(),
+                        ),
+                      );
+                    },
                     child: const Text(
                       'Forget Password ?',
                       style: TextStyle(color: Colors.black54),
@@ -226,18 +229,21 @@ class _SignInPageState extends State<SignInPage> {
                         borderRadius: BorderRadius.circular(12 * scaleFactor),
                       ),
                     ),
-                    child: _isLoading
-                        ? const CircularProgressIndicator(
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          )
-                        : Text(
-                            'Sign in',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 16 * scaleFactor,
-                              fontWeight: FontWeight.bold,
+                    child:
+                        _isLoading
+                            ? const CircularProgressIndicator(
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            )
+                            : Text(
+                              'Sign in',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16 * scaleFactor,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
                   ),
                 ),
 
@@ -269,7 +275,9 @@ class _SignInPageState extends State<SignInPage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => const SignUpPage()),
+                          MaterialPageRoute(
+                            builder: (context) => const SignUpPage(),
+                          ),
                         );
                       },
                       child: const Text(
@@ -279,7 +287,7 @@ class _SignInPageState extends State<SignInPage> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    )
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),

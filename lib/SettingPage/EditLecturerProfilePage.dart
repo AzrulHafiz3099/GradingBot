@@ -125,7 +125,7 @@ class _EditLecturerProfilePageState extends State<EditLecturerProfilePage> {
             const SizedBox(height: 10),
             _buildField('Name', nameController, 'Enter name'),
             _buildField('Email', emailController, 'Enter email', readOnly: true),
-            _buildField('Phone Number', phoneController, 'Enter phone number', keyboardType: TextInputType.phone),
+            _buildField('Phone Number', phoneController, 'Enter phone number', readOnly: true),
             _buildField('Institution', institutionController, 'Enter institution'),
             const SizedBox(height: 24),
             if (isLoading) const Center(child: CircularProgressIndicator()),

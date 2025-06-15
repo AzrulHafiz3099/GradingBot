@@ -100,23 +100,24 @@ class _UpdateExamPageState extends State<UpdateExamPage> {
   Future<void> _deleteExam() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirm Delete"),
-        content: const Text("Are you sure you want to delete this exam?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Confirm Delete"),
+            content: const Text("Are you sure you want to delete this exam?"),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  "Delete",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text(
-              "Delete",
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
     );
 
     if (confirm != true) return;
@@ -171,182 +172,216 @@ class _UpdateExamPageState extends State<UpdateExamPage> {
             ),
           ),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Exam Name'),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _examNameController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddQuestionPage(
-                          examId: widget.examData['exam_id'].toString(),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Exam Name'),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _examNameController,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                            ),
+                          ),
                         ),
-                      ),
-                    ).then((value) {
-                      // Optional: refresh questions after adding a new one
-                      if (value == true) _fetchQuestions();
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Add Question',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Manage Question',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      'Question',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Total Marks',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Total Scheme',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(),
-              isQuestionsLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : questions.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Text("No questions found."),
-                        )
-                      : Column(
-                          children: questions.map((q) {
-                            return Column(
-                              children: [
-                                InkWell(
-                                  onTap: () async {
-                                    final updated = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => UpdateQuestionPage(
-                                          questionId:
-                                              q['question_id']?.toString() ?? '',
-                                          question: q['question_text'] ?? '',
-                                          marks: q['total_marks']?.toString() ?? '0',
-                                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => AddQuestionPage(
+                                        examId:
+                                            widget.examData['exam_id']
+                                                .toString(),
                                       ),
-                                    );
-
-                                    // Optional: refresh question list if updated
-                                    if (updated == true) _fetchQuestions();
-                                  },
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(q['question_text'] ?? ''),
-                                      ),
-                                      Expanded(
-                                        child: Center(
-                                          child: Text(
-                                            q['total_marks']?.toString() ?? '0',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Expanded(
-                                        child: Center(
-                                          child: Text(
-                                            q['total_scheme']?.toString() ?? '0',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ),
-                                const Divider(),
-                              ],
-                            );
-                          }).toList(),
+                              ).then((value) {
+                                if (value == true) _fetchQuestions();
+                              });
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.secondaryColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Add Question',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
                         ),
-              const SizedBox(height: 10),
-              Center(
-                child: TextButton(
-                  onPressed: isLoading ? null : _deleteExam,
-                  child: const Text(
-                    'Delete Exam',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 45,
-                child: ElevatedButton(
-                  onPressed: isLoading ? null : _updateExam,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Manage Question',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Question',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  'Total Marks',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  'Total Scheme',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(),
+                        if (isQuestionsLoading)
+                          const Center(child: CircularProgressIndicator())
+                        else if (questions.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text("No questions found."),
+                          )
+                        else
+                          Column(
+                            children:
+                                questions.map((q) {
+                                  return Column(
+                                    children: [
+                                      InkWell(
+                                        onTap: () async {
+                                          final updated = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (
+                                                    context,
+                                                  ) => UpdateQuestionPage(
+                                                    questionId:
+                                                        q['question_id']
+                                                            ?.toString() ??
+                                                        '',
+                                                    question:
+                                                        q['question_text'] ??
+                                                        '',
+                                                    marks:
+                                                        q['total_marks']
+                                                            ?.toString() ??
+                                                        '0',
+                                                  ),
+                                            ),
+                                          );
+                                          if (updated == true)
+                                            _fetchQuestions();
+                                        },
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
+                                              child: Text(
+                                                q['question_text'] ?? '',
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Center(
+                                                child: Text(
+                                                  q['total_marks']
+                                                          ?.toString() ??
+                                                      '0',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Center(
+                                                child: Text(
+                                                  q['total_scheme']
+                                                          ?.toString() ??
+                                                      '0',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Divider(),
+                                    ],
+                                  );
+                                }).toList(),
+                          ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: TextButton(
+                            onPressed: isLoading ? null : _deleteExam,
+                            child: const Text(
+                              'Delete Exam',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Confirm',
-                          style: TextStyle(color: Colors.white),
-                        ),
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 45,
+                  child: ElevatedButton(
+                    onPressed: isLoading ? null : _updateExam,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child:
+                        isLoading
+                            ? const CircularProgressIndicator(
+                              color: Colors.white,
+                            )
+                            : const Text(
+                              'Confirm',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

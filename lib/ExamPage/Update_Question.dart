@@ -156,220 +156,249 @@ class _UpdateQuestionPageState extends State<UpdateQuestionPage> {
             ),
           ),
         ),
-        body: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Question'),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _questionController,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Text('Total Marks'),
-              const SizedBox(height: 8),
-              TextFormField(
-                controller: _marksController,
-                keyboardType: TextInputType.number,
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 12),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: ElevatedButton(
-                  onPressed: () async {
-                    final added = await Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            AddSchemePage(questionId: widget.questionId),
-                      ),
-                    );
-                    if (added == true) {
-                      _fetchSchemes();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: const Text(
-                    'Add Scheme',
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'Manage Scheme',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-              const SizedBox(height: 12),
-              const Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: Text(
-                      'Scheme',
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  Expanded(
-                    child: Center(
-                      child: Text(
-                        'Marks',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(),
-              isLoadingSchemes
-                  ? const Center(child: CircularProgressIndicator())
-                  : schemes.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(12),
-                          child: Text('No schemes found.'),
-                        )
-                      : Column(
-                          children: schemes.map((scheme) {
-                            return Column(
-                              children: [
-                                InkWell(
-                                  onTap: () async {
-                                    final updated = await Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => UpdateSchemePage(
-                                          questionId: widget.questionId,
-                                          schemeId:
-                                              scheme['scheme_id'].toString(),
-                                          schemeText:
-                                              scheme['scheme_text'] ?? '',
-                                          marks:
-                                              scheme['marks'].toString(),
-                                        ),
+        body: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Question'),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _questionController,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        const Text('Total Marks'),
+                        const SizedBox(height: 8),
+                        TextFormField(
+                          controller: _marksController,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              final added = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder:
+                                      (context) => AddSchemePage(
+                                        questionId: widget.questionId,
                                       ),
-                                    );
-                                    if (updated == true) {
-                                      _fetchSchemes();
-                                    }
-                                  },
-                                  child: Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 3,
-                                        child: Text(
-                                            scheme['scheme_text'] ?? ''),
-                                      ),
-                                      Expanded(
-                                        child: Center(
-                                          child: Text(
-                                            scheme['marks']?.toString() ?? '0',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ),
-                                const Divider(),
-                              ],
-                            );
-                          }).toList(),
-                        ),
-              const SizedBox(height: 10),
-              Center(
-                child: TextButton(
-                  onPressed: () async {
-                    final confirm = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text("Confirm Delete"),
-                        content: const Text(
-                          "Are you sure you want to delete this question and all related schemes?",
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text("Cancel"),
+                              );
+                              if (added == true) _fetchSchemes();
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.secondaryColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Add Scheme',
+                              style: TextStyle(color: Colors.white),
+                            ),
                           ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text("Delete"),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Manage Scheme',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: AppColors.primaryColor,
                           ),
-                        ],
-                      ),
-                    );
+                        ),
+                        const SizedBox(height: 12),
+                        const Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Scheme',
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  'Marks',
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const Divider(),
+                        if (isLoadingSchemes)
+                          const Center(child: CircularProgressIndicator())
+                        else if (schemes.isEmpty)
+                          const Padding(
+                            padding: EdgeInsets.all(12),
+                            child: Text('No schemes found.'),
+                          )
+                        else
+                          Column(
+                            children:
+                                schemes.map((scheme) {
+                                  return Column(
+                                    children: [
+                                      InkWell(
+                                        onTap: () async {
+                                          final updated = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder:
+                                                  (context) => UpdateSchemePage(
+                                                    questionId:
+                                                        widget.questionId,
+                                                    schemeId:
+                                                        scheme['scheme_id']
+                                                            .toString(),
+                                                    schemeText:
+                                                        scheme['scheme_text'] ??
+                                                        '',
+                                                    marks:
+                                                        scheme['marks']
+                                                            .toString(),
+                                                  ),
+                                            ),
+                                          );
+                                          if (updated == true) _fetchSchemes();
+                                        },
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              flex: 3,
+                                              child: Text(
+                                                scheme['scheme_text'] ?? '',
+                                              ),
+                                            ),
+                                            Expanded(
+                                              child: Center(
+                                                child: Text(
+                                                  scheme['marks']?.toString() ??
+                                                      '0',
+                                                  style: const TextStyle(
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Divider(),
+                                    ],
+                                  );
+                                }).toList(),
+                          ),
+                        const SizedBox(height: 10),
+                        Center(
+                          child: TextButton(
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder:
+                                    (context) => AlertDialog(
+                                      title: const Text("Confirm Delete"),
+                                      content: const Text(
+                                        "Are you sure you want to delete this question and all related schemes?",
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed:
+                                              () =>
+                                                  Navigator.pop(context, false),
+                                          child: const Text("Cancel"),
+                                        ),
+                                        TextButton(
+                                          onPressed:
+                                              () =>
+                                                  Navigator.pop(context, true),
+                                          child: const Text("Delete"),
+                                        ),
+                                      ],
+                                    ),
+                              );
 
-                    if (confirm == true) {
-                      try {
-                        final url = Uri.parse(
-                          '${Env.baseUrl}/api_question/questions/${widget.questionId}',
-                        );
-                        final response = await http.delete(url);
+                              if (confirm == true) {
+                                try {
+                                  final url = Uri.parse(
+                                    '${Env.baseUrl}/api_question/questions/${widget.questionId}',
+                                  );
+                                  final response = await http.delete(url);
 
-                        final data = jsonDecode(response.body);
-                        if (response.statusCode == 200 &&
-                            data['success'] == true) {
-                          _showSnackBar('Question deleted successfully.');
-                          Navigator.pop(context, true);
-                        } else {
-                          _showSnackBar(
-                            data['message'] ?? 'Failed to delete question.',
-                          );
-                        }
-                      } catch (e) {
-                        _showSnackBar('Error deleting question: $e');
-                      }
-                    }
-                  },
-                  child: const Text(
-                    'Delete Question',
-                    style: TextStyle(color: Colors.red),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              SizedBox(
-                width: double.infinity,
-                height: 45,
-                child: ElevatedButton(
-                  onPressed: _updateQuestion,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.secondaryColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                                  final data = jsonDecode(response.body);
+                                  if (response.statusCode == 200 &&
+                                      data['success'] == true) {
+                                    _showSnackBar(
+                                      'Question deleted successfully.',
+                                    );
+                                    Navigator.pop(context, true);
+                                  } else {
+                                    _showSnackBar(
+                                      data['message'] ??
+                                          'Failed to delete question.',
+                                    );
+                                  }
+                                } catch (e) {
+                                  _showSnackBar('Error deleting question: $e');
+                                }
+                              }
+                            },
+                            child: const Text(
+                              'Delete Question',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  child: const Text(
-                    'Confirm',
-                    style: TextStyle(color: Colors.white),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 45,
+                  child: ElevatedButton(
+                    onPressed: _updateQuestion,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.secondaryColor,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Confirm',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

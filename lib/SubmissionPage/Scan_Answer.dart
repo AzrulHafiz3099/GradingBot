@@ -655,6 +655,32 @@ class _ScanAnswerPageState extends State<ScanAnswerPage> {
               ),
             ),
 
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0, right: 4.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    'Powered by ',
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                  ),
+                  Image.asset(
+                    'assets/google_vision_icon.png', // Replace with your actual asset path
+                    height: 16,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Google Vision AI',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.grey.shade700,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             if (selectedFile != null) ...[
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),

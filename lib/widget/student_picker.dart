@@ -21,89 +21,142 @@ Future<void> showStudentPicker({
     if (response.statusCode == 200) {
       final data = json.decode(response.body);
       if (data['success'] == true) {
-        students =
-            (data['data'] as List)
-                .map<Map<String, String>>(
-                  (student) => {
-                    'id': student['student_id'].toString(),
-                    'name': student['name'].toString(),
-                  },
-                )
-                .toList();
+        students = (data['data'] as List)
+            .map<Map<String, String>>((student) => {
+                  'id': student['student_id'].toString(),
+                  'name': student['name'].toString(),
+                })
+            .toList();
       }
-    } else {
-      throw Exception('Failed to load students');
     }
-  } catch (e) {
-    // Optional: show error dialog/snackbar here
+  } catch (_) {
     students = [];
   }
 
-  if (students.isEmpty) {}
+  if (students.isEmpty) return;
 
   showModalBottomSheet(
     context: context,
     backgroundColor: Colors.transparent,
     isScrollControlled: true,
     builder: (_) {
-      return Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Choose Student',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              height: 300,
-              child: ListView.builder(
-                itemCount: students.length,
-                itemBuilder: (context, index) {
-                  final student = students[index];
-                  return ListTile(
-                    title: Text(
-                      student['name']!,
-                      style: TextStyle(
-                        color:
-                            student['name'] == selectedStudent
-                                ? Colors.blue
-                                : Colors.black,
-                        fontWeight:
-                            student['name'] == selectedStudent
-                                ? FontWeight.bold
-                                : null,
-                      ),
-                    ),
-                    onTap: () {
-                      onSelected(
-                        student['id']!,
-                        student['name']!,
-                      ); // ✅ Pass both ID and name
-                      Navigator.pop(context);
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
+      return _StudentPickerSheet(
+        students: students,
+        selectedStudent: selectedStudent,
+        onSelected: onSelected,
       );
     },
   );
+}
+
+class _StudentPickerSheet extends StatefulWidget {
+  final List<Map<String, String>> students;
+  final String selectedStudent;
+  final OnStudentSelected onSelected;
+
+  const _StudentPickerSheet({
+    required this.students,
+    required this.selectedStudent,
+    required this.onSelected,
+  });
+
+  @override
+  State<_StudentPickerSheet> createState() => _StudentPickerSheetState();
+}
+
+class _StudentPickerSheetState extends State<_StudentPickerSheet> {
+  late List<Map<String, String>> filteredStudents;
+  String searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    filteredStudents = widget.students;
+  }
+
+  void updateSearch(String query) {
+    setState(() {
+      searchQuery = query;
+      filteredStudents = widget.students
+          .where((student) =>
+              student['name']!
+                  .toLowerCase()
+                  .contains(query.toLowerCase()))
+          .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              const Text(
+                'Choose Student',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const Spacer(),
+              IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            decoration: InputDecoration(
+              hintText: 'Search student...',
+              prefixIcon: const Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+              contentPadding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+            ),
+            onChanged: updateSearch,
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 300,
+            child: filteredStudents.isEmpty
+                ? const Center(child: Text('No students found'))
+                : ListView.builder(
+                    itemCount: filteredStudents.length,
+                    itemBuilder: (context, index) {
+                      final student = filteredStudents[index];
+                      return ListTile(
+                        title: Text(
+                          student['name']!,
+                          style: TextStyle(
+                            color: student['name'] == widget.selectedStudent
+                                ? Colors.blue
+                                : Colors.black,
+                            fontWeight: student['name'] == widget.selectedStudent
+                                ? FontWeight.bold
+                                : null,
+                          ),
+                        ),
+                        onTap: () {
+                          widget.onSelected(
+                            student['id']!,
+                            student['name']!,
+                          );
+                          Navigator.pop(context);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }
