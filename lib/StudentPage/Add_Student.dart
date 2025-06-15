@@ -3,6 +3,8 @@ import '/utils/colors.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '/utils/env.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 
 class AddStudentPage extends StatefulWidget {
   final String classId;
@@ -120,10 +122,16 @@ class _AddStudentPageState extends State<AddStudentPage> {
           child: ListView(
             children: [
               const SizedBox(height: 10),
-              const Text('Class', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text(
+                'Class',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
               const SizedBox(height: 4),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade400),
                   borderRadius: BorderRadius.circular(10),
@@ -132,7 +140,10 @@ class _AddStudentPageState extends State<AddStudentPage> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Student Name', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text(
+                'Student Name',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
               const SizedBox(height: 4),
               TextFormField(
                 controller: nameController,
@@ -151,7 +162,10 @@ class _AddStudentPageState extends State<AddStudentPage> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Matrix Number', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text(
+                'Matrix Number',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
               const SizedBox(height: 4),
               TextFormField(
                 controller: matrixController,
@@ -170,7 +184,10 @@ class _AddStudentPageState extends State<AddStudentPage> {
               ),
               const SizedBox(height: 16),
 
-              const Text('Phone No.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+              const Text(
+                'Phone No.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
               const SizedBox(height: 4),
               TextFormField(
                 controller: phoneController,
@@ -189,6 +206,48 @@ class _AddStudentPageState extends State<AddStudentPage> {
                   return null;
                 },
               ),
+
+              const SizedBox(height: 30),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () async {
+                    final inviteLink =
+                        "https://docs.google.com/forms/d/e/1FAIpQLSfy0oszgRlTvD4n4XG3wgr5DKEYq1oWpbErnn4-zRzgLtuVEg/viewform?usp=pp_url"
+                        "&entry.988185630=${widget.classId}" // Class ID
+                        "&entry.19554302=${Uri.encodeComponent(widget.className)}"; // Class Name
+
+                    // 1. Copy to clipboard
+                    await Clipboard.setData(ClipboardData(text: inviteLink));
+
+                    // 2. Share using share_plus
+                    await Share.share(
+                      inviteLink,
+                      subject: 'Join my class: ${widget.className}',
+                    );
+
+                    // Optional confirmation
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Invite link copied & ready to share!'),
+                        duration: Duration(seconds: 3),
+                      ),
+                    );
+                  },
+                  icon: Icon(Icons.share),
+                  label: Text('Share Invite Link'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 16),
 
               if (errorMessage != null)
                 Padding(
@@ -216,12 +275,13 @@ class _AddStudentPageState extends State<AddStudentPage> {
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
-            child: isLoading
-                ? const CircularProgressIndicator(color: Colors.white)
-                : const Text(
-                    'Confirm',
-                    style: TextStyle(color: Colors.white),
-                  ),
+            child:
+                isLoading
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                      'Confirm',
+                      style: TextStyle(color: Colors.white),
+                    ),
           ),
         ),
       ),
