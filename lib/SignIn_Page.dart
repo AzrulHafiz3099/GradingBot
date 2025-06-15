@@ -29,8 +29,26 @@ class _SignInPageState extends State<SignInPage> {
   @override
   void initState() {
     super.initState();
-    _checkConnection();
+    _clearSecureStorage(); // Clear secure storage on start
+    _checkConnection(); // Check backend connection
   }
+
+  Future<void> _clearSecureStorage() async {
+  Map<String, String> allValues = await secureStorage.readAll();
+
+  if (allValues.isEmpty) {
+    print('🔍 Secure storage is already empty.');
+  } else {
+    print('🔐 Contents of secure storage before clearing:');
+    allValues.forEach((key, value) {
+      print(' - $key: $value');
+    });
+  }
+
+  await secureStorage.deleteAll();
+  print('🧹 Secure storage cleared on SignInPage load.');
+}
+
 
   Future<void> _checkConnection() async {
     try {

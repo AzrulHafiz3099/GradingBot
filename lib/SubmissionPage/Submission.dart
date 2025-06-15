@@ -18,8 +18,6 @@ class _SubmissionPageState extends State<SubmissionPage> {
   String selectedClass = 'Choose Class';
   String selectedExam = 'Choose Exam';
   String selectedStudent = 'Choose Student';
-  
-  // TextEditingController questionController = TextEditingController(); // 🔒 Commented: used for number of questions
 
   final secureStorage = const FlutterSecureStorage();
   String? lecturerId;
@@ -203,44 +201,6 @@ class _SubmissionPageState extends State<SubmissionPage> {
             ),
             const SizedBox(height: 16),
 
-            // 🔒 Commented out - No. of Question Input
-            /*
-            const Text(
-              'No. of Question (Max - 10)',
-              style: TextStyle(color: Colors.grey, fontSize: 12),
-            ),
-            const SizedBox(height: 4),
-            TextField(
-              controller: questionController,
-              keyboardType: TextInputType.number,
-              onChanged: (value) {
-                if (value.isEmpty) return;
-
-                if (value.length > 1 && value.startsWith('0')) {
-                  questionController.text = value.substring(1);
-                  questionController.selection = TextSelection.fromPosition(
-                    TextPosition(offset: questionController.text.length),
-                  );
-                  return;
-                }
-
-                final number = int.tryParse(value);
-
-                if (number == null || number < 0 || number > 10) {
-                  questionController.text = '10';
-                  questionController.selection = const TextSelection.collapsed(
-                    offset: 2,
-                  );
-                }
-              },
-              decoration: const InputDecoration(
-                hintText: 'Enter number of questions',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.all(Radius.circular(10)),
-                ),
-              ),
-            ),
-            */
           ],
         ),
       ),
@@ -251,8 +211,6 @@ class _SubmissionPageState extends State<SubmissionPage> {
           height: 48,
           child: ElevatedButton(
             onPressed: () async {
-              // final numberText = questionController.text; // 🔒 Commented
-              // final number = int.tryParse(numberText); // 🔒 Commented
 
               String? errorMessage;
 
@@ -263,17 +221,6 @@ class _SubmissionPageState extends State<SubmissionPage> {
               } else if (selectedStudent == 'Choose Student') {
                 errorMessage = 'Please select a student.';
               }
-              /*
-              else if (numberText.isEmpty) {
-                errorMessage = 'Please enter the number of questions.';
-              } else if (number == null) {
-                errorMessage = 'Invalid number format.';
-              } else if (number < 0 || number > 10) {
-                errorMessage = 'Number of questions must be between 0 and 10.';
-              } else if (numberText.length > 1 && numberText.startsWith('0')) {
-                errorMessage = 'Do not use leading zeros (e.g. 01, 02).';
-              }
-              */
 
               if (errorMessage != null) {
                 ScaffoldMessenger.of(context).showSnackBar(

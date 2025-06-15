@@ -7,6 +7,7 @@ import 'SettingPage/EditLecturerProfilePage.dart';
 import 'SettingPage/PrivacyPolicy.dart';
 import 'SettingPage/HelpSupport.dart';
 import 'SettingPage/Password/ForgotPassword.dart';
+import 'SignIn_Page.dart';
 
 class SettingPage extends StatefulWidget {
   const SettingPage({super.key});
@@ -153,22 +154,22 @@ class _SettingPageState extends State<SettingPage> {
                         ),
                       ),
                       settingTile(
-                          Icons.notifications,
-                          'Notification',
-                          trailing: Transform.scale(
-                            scale: 0.8,
-                            child: Switch(
-                              value: isNotificationOn,
-                              onChanged: (value) {
-                                setState(() {
-                                  isNotificationOn = value;
-                                });
-                              },
-                              activeColor: Colors.white,
-                              inactiveThumbColor: Colors.grey,
-                            ),
+                        Icons.notifications,
+                        'Notification',
+                        trailing: Transform.scale(
+                          scale: 0.8,
+                          child: Switch(
+                            value: isNotificationOn,
+                            onChanged: (value) {
+                              setState(() {
+                                isNotificationOn = value;
+                              });
+                            },
+                            activeColor: Colors.white,
+                            inactiveThumbColor: Colors.grey,
                           ),
                         ),
+                      ),
 
                       settingTile(
                         Icons.language,
@@ -187,7 +188,8 @@ class _SettingPageState extends State<SettingPage> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const ForgotPasswordPage(),
+                                builder:
+                                    (context) => const ForgotPasswordPage(),
                               ),
                             );
                           },
@@ -274,7 +276,130 @@ class _SettingPageState extends State<SettingPage> {
                           ),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
-                        onPressed: () {},
+                        onPressed: () async {
+                          final confirm = await showDialog<bool>(
+                            context: context,
+                            builder:
+                                (context) => Dialog(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(24),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        const Icon(
+                                          Icons.logout,
+                                          size: 48,
+                                          color: Colors.red,
+                                        ),
+                                        const SizedBox(height: 16),
+                                        const Text(
+                                          'Sign Out?',
+                                          style: TextStyle(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 10),
+                                        const Text(
+                                          'Are you sure you want to sign out? You will need to sign in again to access your account.',
+                                          textAlign: TextAlign.center,
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 24),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: OutlinedButton(
+                                                onPressed:
+                                                    () => Navigator.of(
+                                                      context,
+                                                    ).pop(false),
+                                                style: OutlinedButton.styleFrom(
+                                                  side: const BorderSide(
+                                                    color: Colors.grey,
+                                                  ),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  'Cancel',
+                                                  style: TextStyle(
+                                                    color: Colors.grey,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: ElevatedButton(
+                                                onPressed:
+                                                    () => Navigator.of(
+                                                      context,
+                                                    ).pop(true),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.red,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          10,
+                                                        ),
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  'Sign Out',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                          );
+
+                          if (confirm == true) {
+                            // Print secure storage contents before clearing
+                            Map<String, String> allValues =
+                                await secureStorage.readAll();
+
+                            if (allValues.isEmpty) {
+                              print('🔍 Secure storage is already empty.');
+                            } else {
+                              print(
+                                '🔐 Contents of secure storage before sign out:',
+                              );
+                              allValues.forEach((key, value) {
+                                print(' - $key: $value');
+                              });
+                            }
+
+                            // Clear secure storage
+                            await secureStorage.deleteAll();
+                            print('✅ Secure storage cleared.');
+
+                            // Navigate to SignInPage and clear navigation stack
+                            Navigator.of(context).pushAndRemoveUntil(
+                              MaterialPageRoute(
+                                builder: (context) => const SignInPage(),
+                              ),
+                              (route) => false,
+                            );
+                          }
+                        },
                         child: const Text(
                           'Sign Out',
                           style: TextStyle(color: Colors.white),

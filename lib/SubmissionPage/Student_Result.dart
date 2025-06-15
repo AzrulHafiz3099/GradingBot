@@ -220,6 +220,7 @@ class _StudentResultPageState extends State<StudentResultPage> {
   }
 
   Future<void> clearSummary() async {
+    await _storage.delete(key: 'question_id');
     await _storage.delete(key: 'summary');
     await _storage.delete(key: 'summary_json');
     await _storage.delete(key: 'exam_id');
@@ -228,6 +229,7 @@ class _StudentResultPageState extends State<StudentResultPage> {
     await _storage.delete(key: 'exam_name');
     await _storage.delete(key: 'class_name');
     await _storage.delete(key: 'student_name');
+    await _storage.delete(key: 'scan_answer_summary');
   }
 
   @override
