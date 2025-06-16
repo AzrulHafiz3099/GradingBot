@@ -6,10 +6,7 @@ import '/utils/env.dart';
 class AddSchemePage extends StatefulWidget {
   final String questionId;
 
-  const AddSchemePage({
-    Key? key,
-    required this.questionId,
-  }) : super(key: key);
+  const AddSchemePage({Key? key, required this.questionId}) : super(key: key);
 
   @override
   State<AddSchemePage> createState() => _AddSchemePageState();
@@ -37,7 +34,9 @@ class _AddSchemePageState extends State<AddSchemePage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String? _validateScheme(String? value) {
@@ -49,9 +48,9 @@ class _AddSchemePageState extends State<AddSchemePage> {
 
   String? _validateMarks(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter marks';
+      return 'Please enter the marks';
     }
-    final int? marks = int.tryParse(value.trim());
+    final double? marks = double.tryParse(value.trim());
     if (marks == null) {
       return 'Please enter a valid number';
     }
@@ -72,11 +71,13 @@ class _AddSchemePageState extends State<AddSchemePage> {
       _errorMessage = null;
     });
 
-    final url = Uri.parse('${Env.baseUrl}/api_scheme/schemes'); // POST to this route
+    final url = Uri.parse(
+      '${Env.baseUrl}/api_scheme/schemes',
+    ); // POST to this route
     final body = jsonEncode({
       "question_id": widget.questionId,
       "scheme_text": _schemeController.text.trim(),
-      "marks": int.parse(_marksController.text.trim()),
+      "marks": double.parse(_marksController.text.trim()),
     });
 
     try {
@@ -182,12 +183,13 @@ class _AddSchemePageState extends State<AddSchemePage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Confirm',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                  child:
+                      _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                            'Confirm',
+                            style: TextStyle(color: Colors.white),
+                          ),
                 ),
               ),
             ],

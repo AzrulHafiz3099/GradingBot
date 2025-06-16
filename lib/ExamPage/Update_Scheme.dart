@@ -46,7 +46,7 @@ class _UpdateSchemePageState extends State<UpdateSchemePage> {
   Future<void> _updateScheme() async {
     final schemeText = _schemeController.text.trim();
     final marksText = _marksController.text.trim();
-    final marks = int.tryParse(marksText) ?? 0;
+    final marks = double.tryParse(marksText) ?? 0.0;
 
     if (schemeText == widget.schemeText.trim() && marksText == widget.marks.trim()) {
       Navigator.pop(context, false);
@@ -82,6 +82,21 @@ class _UpdateSchemePageState extends State<UpdateSchemePage> {
       _showSnackBar('Error updating scheme: $e');
     }
   }
+
+  String? _validateMarks(String? value) {
+  if (value == null || value.trim().isEmpty) {
+    return 'Please enter the marks';
+  }
+  final double? marks = double.tryParse(value.trim());
+  if (marks == null) {
+    return 'Please enter a valid number';
+  }
+  if (marks <= 0) {
+    return 'Marks must be greater than zero';
+  }
+  return null;
+}
+
 
   Future<void> _deleteScheme() async {
     final confirm = await showDialog<bool>(
@@ -164,6 +179,7 @@ class _UpdateSchemePageState extends State<UpdateSchemePage> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                 ),
+                validator: _validateMarks,
               ),
               Center(
                 child: TextButton(

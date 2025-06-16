@@ -388,7 +388,7 @@ class _SettingPageState extends State<SettingPage> {
                             }
 
                             // Clear secure storage
-                            await secureStorage.deleteAll();
+                            await secureStorage.delete(key: 'lecturer_id');
                             print('✅ Secure storage cleared.');
 
                             // Navigate to SignInPage and clear navigation stack

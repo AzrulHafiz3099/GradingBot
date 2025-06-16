@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '/utils/env.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'SettingPage/Password/ForgotPassword.dart';
+import 'package:local_auth/local_auth.dart';
 
 class SignInPage extends StatefulWidget {
   const SignInPage({super.key});
@@ -25,6 +26,9 @@ class _SignInPageState extends State<SignInPage> {
   bool _isLoading = false;
 
   bool? _isConnected; // null = loading, true = connected, false = disconnected
+  final String _keyEmail = 'biometric_email';
+  final String _keyPassword = 'biometric_password';
+  final String _keyLecturerId = 'lecturer_id';
 
   @override
   void initState() {
@@ -34,21 +38,112 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<void> _clearSecureStorage() async {
-  Map<String, String> allValues = await secureStorage.readAll();
+    Map<String, String> allValues = await secureStorage.readAll();
 
-  if (allValues.isEmpty) {
-    print('🔍 Secure storage is already empty.');
-  } else {
-    print('🔐 Contents of secure storage before clearing:');
-    allValues.forEach((key, value) {
-      print(' - $key: $value');
-    });
+    if (allValues.isEmpty) {
+      print('🔍 Secure storage is already empty.');
+    } else {
+      print('🔐 Contents of secure storage before clearing:');
+      allValues.forEach((key, value) {
+        print(' - $key: $value');
+      });
+    }
+
+    await secureStorage.delete(key: 'lecturer_id');
+    print('🧹 Secure storage cleared on SignInPage load.');
   }
 
-  await secureStorage.deleteAll();
-  print('🧹 Secure storage cleared on SignInPage load.');
+  Future<void> _authenticateWithBiometrics() async {
+  final LocalAuthentication auth = LocalAuthentication();
+
+  try {
+    bool canCheckBiometrics = await auth.canCheckBiometrics;
+    bool isDeviceSupported = await auth.isDeviceSupported();
+
+    print('🔍 canCheckBiometrics: $canCheckBiometrics');
+    print('🛠️ isDeviceSupported: $isDeviceSupported');
+
+    if (!canCheckBiometrics || !isDeviceSupported) {
+      _showMessage('This device does not support biometric authentication.');
+      return;
+    }
+
+    final authenticated = await auth.authenticate(
+      localizedReason: 'Use your fingerprint to sign in',
+      options: const AuthenticationOptions(
+        biometricOnly: true,
+        stickyAuth: true,
+      ),
+    );
+
+    if (authenticated) {
+      final email = await secureStorage.read(key: _keyEmail);
+      final password = await secureStorage.read(key: _keyPassword);
+
+      if (email != null && password != null) {
+        _emailOrIdController.text = email;
+        _passwordController.text = password;
+        print('🔑 Biometric login: trying to sign in with $email');
+        await _handleSignIn();
+      } else {
+        const message = 'No stored credentials found. Please sign in manually first.';
+        _showMessage(message);
+        print('⚠️ $message');
+      }
+    }
+  } catch (e) {
+    final errorMessage = 'Biometric authentication failed: $e';
+    _showMessage(errorMessage);
+    print('❌ $errorMessage');
+  }
 }
 
+
+
+  Future<void> _showBiometricPrompt(String email, String password) async {
+    final existingEmail = await secureStorage.read(key: _keyEmail);
+
+    if (existingEmail != null && existingEmail != email) {
+      final shouldReplace = await _showConfirmationDialog(
+        'Replace saved account?',
+        'A different account is already saved for biometric login. Do you want to replace it?',
+      );
+      if (!shouldReplace) return;
+    }
+
+    final useBiometric = await _showConfirmationDialog(
+      'Enable Biometric Login?',
+      'Would you like to enable biometric login for this account?',
+    );
+
+    if (useBiometric) {
+      await secureStorage.write(key: _keyEmail, value: email);
+      await secureStorage.write(key: _keyPassword, value: password);
+      print('🔒 Biometric credentials stored');
+    }
+  }
+
+  Future<bool> _showConfirmationDialog(String title, String content) async {
+    return await showDialog<bool>(
+          context: context,
+          builder:
+              (context) => AlertDialog(
+                title: Text(title),
+                content: Text(content),
+                actions: [
+                  TextButton(
+                    child: const Text('Cancel'),
+                    onPressed: () => Navigator.pop(context, false),
+                  ),
+                  TextButton(
+                    child: const Text('Yes'),
+                    onPressed: () => Navigator.pop(context, true),
+                  ),
+                ],
+              ),
+        ) ??
+        false;
+  }
 
   Future<void> _checkConnection() async {
     try {
@@ -105,6 +200,8 @@ class _SignInPageState extends State<SignInPage> {
               value: data['lecturer_id'],
             );
           }
+
+          _showBiometricPrompt(emailOrId, password);
 
           setState(() => _isLoading = false);
           Navigator.pushReplacement(
@@ -274,7 +371,7 @@ class _SignInPageState extends State<SignInPage> {
                   height: 45 * scaleFactor,
                   child: OutlinedButton.icon(
                     icon: const Icon(Icons.fingerprint),
-                    onPressed: () {},
+                    onPressed: _authenticateWithBiometrics,
                     label: const Text('Biometrics Sign In'),
                     style: OutlinedButton.styleFrom(
                       shape: RoundedRectangleBorder(

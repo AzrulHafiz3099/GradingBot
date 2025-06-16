@@ -96,7 +96,7 @@ class _UpdateQuestionPageState extends State<UpdateQuestionPage> {
   Future<void> _updateQuestion() async {
     final questionText = _questionController.text.trim();
     final marksText = _marksController.text.trim();
-    final marks = int.tryParse(marksText) ?? 0;
+    final marks = double.tryParse(marksText) ?? 0.0;
 
     if (questionText.isEmpty) {
       _showSnackBar('Question text cannot be empty.');
@@ -113,9 +113,10 @@ class _UpdateQuestionPageState extends State<UpdateQuestionPage> {
     final url = Uri.parse(
       '${Env.baseUrl}/api_question/questions/${widget.questionId}',
     );
+
     final body = jsonEncode({
       "question_text": questionText,
-      "total_marks": marks,
+      "total_marks": marks, // now a double
     });
 
     try {
@@ -135,6 +136,20 @@ class _UpdateQuestionPageState extends State<UpdateQuestionPage> {
     } catch (e) {
       _showSnackBar('Error updating question: $e');
     }
+  }
+
+  String? _validateMarks(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter the total marks';
+    }
+    final double? marks = double.tryParse(value.trim());
+    if (marks == null) {
+      return 'Please enter a valid number';
+    }
+    if (marks <= 0) {
+      return 'Marks must be greater than zero';
+    }
+    return null;
   }
 
   @override
@@ -193,6 +208,7 @@ class _UpdateQuestionPageState extends State<UpdateQuestionPage> {
                               horizontal: 12,
                             ),
                           ),
+                          validator: _validateMarks,
                         ),
                         const SizedBox(height: 12),
                         Align(

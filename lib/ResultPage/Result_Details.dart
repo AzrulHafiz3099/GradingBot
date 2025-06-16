@@ -38,36 +38,33 @@ class _ResultDetailsPageState extends State<ResultDetailsPage> {
     (await rootBundle.load('assets/logo.png')).buffer.asUint8List(),
   );
 
+  print("Summary raw value: ${studentResult?['summary']}");
+
   pdf.addPage(
-    pw.Page(
+    pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
       build: (pw.Context context) {
-        return pw.Column(
-          crossAxisAlignment: pw.CrossAxisAlignment.start,
-          children: [
-            pw.Row(
-              mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-              children: [
-                pw.Text('Result Summary', style: pw.TextStyle(fontSize: 20)),
-                pw.Image(imageLogo, height: 60, width: 60),
-              ],
-            ),
-            pw.Divider(),
-            pw.SizedBox(height: 10),
-            _buildPdfText('Student Name', studentResult?['student_name']),
-            _buildPdfText('Class', studentResult?['class_name']),
-            _buildPdfText('Exam', studentResult?['exam_name']),
-            _buildPdfText('Phone No.', studentResult?['phone_number']),
-            _buildPdfText('Score', studentResult?['score'].toString()),
-            _buildPdfText('Timestamp', studentResult?['timestamp']),
-            pw.SizedBox(height: 10),
-            pw.Text('Answer Summary:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
-            pw.SizedBox(height: 5),
-            pw.Text(
-              studentResult?['summary'] ?? '-',
-              style: pw.TextStyle(fontSize: 12),
-            ),
-          ],
-        );
+        return [
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text('Result Summary', style: pw.TextStyle(fontSize: 20)),
+              pw.Image(imageLogo, height: 60, width: 60),
+            ],
+          ),
+          pw.Divider(),
+          pw.SizedBox(height: 10),
+          _buildPdfText('Student Name', studentResult?['student_name']),
+          _buildPdfText('Class', studentResult?['class_name']),
+          _buildPdfText('Exam', studentResult?['exam_name']),
+          _buildPdfText('Phone No.', studentResult?['phone_number']),
+          _buildPdfText('Score', studentResult?['score']?.toString()),
+          _buildPdfText('Timestamp', studentResult?['timestamp']),
+          pw.SizedBox(height: 10),
+          pw.Text('Answer Summary:', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+          pw.SizedBox(height: 5),
+          ..._buildSummaryLines(studentResult?['summary']),
+        ];
       },
     ),
   );
@@ -77,6 +74,33 @@ class _ResultDetailsPageState extends State<ResultDetailsPage> {
     name: 'Result_Summary_${studentResult?['student_name'] ?? 'Student'}.pdf',
   );
 }
+
+List<pw.Widget> _buildSummaryLines(String? summary) {
+  if (summary == null || summary.trim().isEmpty) {
+    return [pw.Text('-', style: pw.TextStyle(fontSize: 12))];
+  }
+
+  final lines = summary.split('\n');
+  final widgets = <pw.Widget>[];
+
+  for (int i = 0; i < lines.length; i++) {
+    final line = lines[i].trim();
+
+    // Skip completely empty lines
+    if (line.isEmpty) continue;
+
+    // If line starts with "Question" and it's NOT the first line, add space above
+    if (RegExp(r'^Question\s+\d+', caseSensitive: false).hasMatch(line) && widgets.isNotEmpty) {
+      widgets.add(pw.SizedBox(height: 10));
+    }
+
+    widgets.add(pw.Text(line, style: pw.TextStyle(fontSize: 12)));
+  }
+
+  return widgets;
+}
+
+
 
 pw.Widget _buildPdfText(String label, String? value) {
   return pw.Padding(

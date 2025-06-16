@@ -34,7 +34,9 @@ class _AddQuestionPageState extends State<AddQuestionPage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _addQuestion() async {
@@ -48,12 +50,12 @@ class _AddQuestionPageState extends State<AddQuestionPage> {
       _errorMessage = null;
     });
 
-    final url = Uri.parse('${Env.baseUrl}/api_question/questions');
+    final url = Uri.parse('${Env.baseUrl}/api_question/add_questions');
     final body = jsonEncode({
       "exam_id": widget.examId,
       "question_text": _questionController.text.trim(),
       // You might want to send marks as well if your backend supports it
-      "marks": int.parse(_marksController.text.trim()),
+      "marks": double.parse(_marksController.text.trim()),
     });
 
     try {
@@ -95,7 +97,7 @@ class _AddQuestionPageState extends State<AddQuestionPage> {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter the total marks';
     }
-    final int? marks = int.tryParse(value.trim());
+    final double? marks = double.tryParse(value.trim());
     if (marks == null) {
       return 'Please enter a valid number';
     }
@@ -180,12 +182,13 @@ class _AddQuestionPageState extends State<AddQuestionPage> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isLoading
-                      ? const CircularProgressIndicator(color: Colors.white)
-                      : const Text(
-                          'Confirm',
-                          style: TextStyle(color: Colors.white),
-                        ),
+                  child:
+                      _isLoading
+                          ? const CircularProgressIndicator(color: Colors.white)
+                          : const Text(
+                            'Confirm',
+                            style: TextStyle(color: Colors.white),
+                          ),
                 ),
               ),
             ],

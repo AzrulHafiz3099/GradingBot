@@ -191,7 +191,7 @@ class _ExamManagementPageState extends State<ExamManagementPage> {
                       : errorMessage != null
                       ? Center(child: Text(errorMessage!))
                       : exams.isEmpty
-                      ? const Center(child: Text("Select a class."))
+                      ? const Center(child: Text("Empty"))
                       : ListView.builder(
                         itemCount: exams.length,
                         itemBuilder: (context, index) {
