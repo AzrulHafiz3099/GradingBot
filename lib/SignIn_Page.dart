@@ -48,80 +48,89 @@ class _SignInPageState extends State<SignInPage> {
         print(' - $key: $value');
       });
     }
-
+    // await secureStorage.deleteAll();
     await secureStorage.delete(key: 'lecturer_id');
+    print('🔐 Contents of secure storage afer clearing:');
+    allValues.forEach((key, value) {
+      print(' - $key: $value');
+    });
     print('🧹 Secure storage cleared on SignInPage load.');
   }
 
   Future<void> _authenticateWithBiometrics() async {
-  final LocalAuthentication auth = LocalAuthentication();
+    final LocalAuthentication auth = LocalAuthentication();
 
-  try {
-    bool canCheckBiometrics = await auth.canCheckBiometrics;
-    bool isDeviceSupported = await auth.isDeviceSupported();
+    try {
+      bool canCheckBiometrics = await auth.canCheckBiometrics;
+      bool isDeviceSupported = await auth.isDeviceSupported();
 
-    print('🔍 canCheckBiometrics: $canCheckBiometrics');
-    print('🛠️ isDeviceSupported: $isDeviceSupported');
+      print('🔍 canCheckBiometrics: $canCheckBiometrics');
+      print('🛠️ isDeviceSupported: $isDeviceSupported');
 
-    if (!canCheckBiometrics || !isDeviceSupported) {
-      _showMessage('This device does not support biometric authentication.');
-      return;
-    }
-
-    final authenticated = await auth.authenticate(
-      localizedReason: 'Use your fingerprint to sign in',
-      options: const AuthenticationOptions(
-        biometricOnly: true,
-        stickyAuth: true,
-      ),
-    );
-
-    if (authenticated) {
-      final email = await secureStorage.read(key: _keyEmail);
-      final password = await secureStorage.read(key: _keyPassword);
-
-      if (email != null && password != null) {
-        _emailOrIdController.text = email;
-        _passwordController.text = password;
-        print('🔑 Biometric login: trying to sign in with $email');
-        await _handleSignIn();
-      } else {
-        const message = 'No stored credentials found. Please sign in manually first.';
-        _showMessage(message);
-        print('⚠️ $message');
+      if (!canCheckBiometrics || !isDeviceSupported) {
+        _showMessage('This device does not support biometric authentication.');
+        return;
       }
+
+      final authenticated = await auth.authenticate(
+        localizedReason: 'Use your fingerprint to sign in',
+        options: const AuthenticationOptions(
+          biometricOnly: true,
+          stickyAuth: true,
+        ),
+      );
+
+      if (authenticated) {
+        final email = await secureStorage.read(key: _keyEmail);
+        final password = await secureStorage.read(key: _keyPassword);
+
+        if (email != null && password != null) {
+          _emailOrIdController.text = email;
+          _passwordController.text = password;
+          print('🔑 Biometric login: trying to sign in with $email');
+          await _handleSignIn();
+        } else {
+          const message =
+              'No stored credentials found. Please sign in manually first.';
+          _showMessage(message);
+          print('⚠️ $message');
+        }
+      }
+    } catch (e) {
+      final errorMessage = 'Biometric authentication failed: $e';
+      _showMessage(errorMessage);
+      print('❌ $errorMessage');
     }
-  } catch (e) {
-    final errorMessage = 'Biometric authentication failed: $e';
-    _showMessage(errorMessage);
-    print('❌ $errorMessage');
+  }
+
+  Future<void> _showBiometricPrompt(String email, String password) async {
+  final existingEmail = await secureStorage.read(key: _keyEmail);
+
+  if (existingEmail != null && existingEmail != email) {
+    final shouldReplace = await _showConfirmationDialog(
+      'Replace saved account?',
+      'A different account is already saved for biometric login. Do you want to replace it?',
+    );
+    if (!shouldReplace) return;
+  }
+
+  final useBiometric = await _showConfirmationDialog(
+    'Enable Biometric Login?',
+    'Would you like to enable biometric login for this account?',
+  );
+
+  if (useBiometric) {
+    await secureStorage.write(key: _keyEmail, value: email);
+    await secureStorage.write(key: _keyPassword, value: password);
+    await secureStorage.delete(key: 'biometric_declined'); // reset decline flag
+    print('🔒 Biometric credentials stored');
+  } else {
+    await secureStorage.write(key: 'biometric_declined', value: 'true');
+    print('❌ User declined biometric prompt');
   }
 }
 
 
-
-  Future<void> _showBiometricPrompt(String email, String password) async {
-    final existingEmail = await secureStorage.read(key: _keyEmail);
-
-    if (existingEmail != null && existingEmail != email) {
-      final shouldReplace = await _showConfirmationDialog(
-        'Replace saved account?',
-        'A different account is already saved for biometric login. Do you want to replace it?',
-      );
-      if (!shouldReplace) return;
-    }
-
-    final useBiometric = await _showConfirmationDialog(
-      'Enable Biometric Login?',
-      'Would you like to enable biometric login for this account?',
-    );
-
-    if (useBiometric) {
-      await secureStorage.write(key: _keyEmail, value: email);
-      await secureStorage.write(key: _keyPassword, value: password);
-      print('🔒 Biometric credentials stored');
-    }
-  }
 
   Future<bool> _showConfirmationDialog(String title, String content) async {
     return await showDialog<bool>(
@@ -164,64 +173,80 @@ class _SignInPageState extends State<SignInPage> {
   }
 
   Future<void> _handleSignIn() async {
-    final emailOrId = _emailOrIdController.text.trim();
-    final password = _passwordController.text.trim();
+  final emailOrId = _emailOrIdController.text.trim();
+  final password = _passwordController.text.trim();
 
-    if (emailOrId.isEmpty || password.isEmpty) {
-      _showMessage('Please enter your Email/Username and Password');
-      return;
-    }
+  if (emailOrId.isEmpty || password.isEmpty) {
+    _showMessage('Please enter your Email/Username and Password');
+    return;
+  }
 
-    if (_isConnected != true) {
-      _showMessage('Not connected to backend. Please try again later.');
-      return;
-    }
+  if (_isConnected != true) {
+    _showMessage('Not connected to backend. Please try again later.');
+    return;
+  }
 
-    setState(() => _isLoading = true);
+  setState(() => _isLoading = true);
 
-    try {
-      final url = Uri.parse('${Env.baseUrl}/login');
+  try {
+    final url = Uri.parse('${Env.baseUrl}/login');
 
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({'emailOrId': emailOrId, 'password': password}),
-      );
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'emailOrId': emailOrId, 'password': password}),
+    );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        print('Response from backend: $data');
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      print('Response from backend: $data');
 
-        if (data['success'] == true) {
-          // Save lecturer_id securely
-          if (data.containsKey('lecturer_id')) {
-            await secureStorage.write(
-              key: 'lecturer_id',
-              value: data['lecturer_id'],
-            );
-          }
-
-          _showBiometricPrompt(emailOrId, password);
-
-          setState(() => _isLoading = false);
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => const MainScreen()),
+      if (data['success'] == true) {
+        // Save lecturer_id securely
+        if (data.containsKey('lecturer_id')) {
+          await secureStorage.write(
+            key: 'lecturer_id',
+            value: data['lecturer_id'],
           );
-        } else {
-          setState(() => _isLoading = false);
-          _showMessage(data['message'] ?? 'Invalid Email/Username or Password');
         }
+
+        // ✅ Show biometric prompt only if:
+        // - biometric login hasn't been set before OR
+        // - user hasn't previously declined
+        final storedEmail = await secureStorage.read(key: _keyEmail);
+final declined = await secureStorage.read(key: 'biometric_declined');
+
+// ✅ Show prompt if:
+// - No credentials saved yet
+// - OR current login email differs from stored one
+// - AND user hasn't declined biometric use
+final shouldPrompt = (storedEmail == null || storedEmail != emailOrId) && declined != 'true';
+
+if (shouldPrompt) {
+  await _showBiometricPrompt(emailOrId, password);
+}
+
+
+        setState(() => _isLoading = false);
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const MainScreen()),
+        );
       } else {
         setState(() => _isLoading = false);
-        _showMessage('Server error: ${response.statusCode}');
+        _showMessage(data['message'] ?? 'Invalid Email/Username or Password');
       }
-    } catch (e) {
+    } else {
       setState(() => _isLoading = false);
-      _showMessage('Network error: $e');
-      print('SignIn error: $e');
+      _showMessage('Server error: ${response.statusCode}');
     }
+  } catch (e) {
+    setState(() => _isLoading = false);
+    _showMessage('Network error: $e');
+    print('SignIn error: $e');
   }
+}
+
 
   void _showMessage(String message) {
     ScaffoldMessenger.of(
