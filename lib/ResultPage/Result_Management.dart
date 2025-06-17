@@ -112,7 +112,7 @@ class _ResultManagementPageState extends State<ResultManagementPage> {
                         Expanded(
                           flex: 5,
                           child: Text(
-                            'Student Name',
+                            'Matrix Number',
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                         ),
@@ -167,7 +167,7 @@ class _ResultManagementPageState extends State<ResultManagementPage> {
                                   children: [
                                     Expanded(
                                       flex: 5,
-                                      child: Text(result['student_name'] ?? ''),
+                                      child: Text(result['student_matrix'] ?? ''),
                                     ),
                                     Expanded(
                                       flex: 3,

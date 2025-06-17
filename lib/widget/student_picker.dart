@@ -24,7 +24,7 @@ Future<void> showStudentPicker({
         students = (data['data'] as List)
             .map<Map<String, String>>((student) => {
                   'id': student['student_id'].toString(),
-                  'name': student['name'].toString(),
+                  'matrix': student['matrix'].toString(),
                 })
             .toList();
       }
@@ -79,7 +79,7 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
       searchQuery = query;
       filteredStudents = widget.students
           .where((student) =>
-              student['name']!
+              student['matrix']!
                   .toLowerCase()
                   .contains(query.toLowerCase()))
           .toList();
@@ -134,12 +134,12 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
                       final student = filteredStudents[index];
                       return ListTile(
                         title: Text(
-                          student['name']!,
+                          student['matrix']!,
                           style: TextStyle(
-                            color: student['name'] == widget.selectedStudent
+                            color: student['matrix'] == widget.selectedStudent
                                 ? Colors.blue
                                 : Colors.black,
-                            fontWeight: student['name'] == widget.selectedStudent
+                            fontWeight: student['matrix'] == widget.selectedStudent
                                 ? FontWeight.bold
                                 : null,
                           ),
@@ -147,7 +147,7 @@ class _StudentPickerSheetState extends State<_StudentPickerSheet> {
                         onTap: () {
                           widget.onSelected(
                             student['id']!,
-                            student['name']!,
+                            student['matrix']!,
                           );
                           Navigator.pop(context);
                         },

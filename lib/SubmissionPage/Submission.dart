@@ -181,7 +181,7 @@ class _SubmissionPageState extends State<SubmissionPage> {
             const SizedBox(height: 16),
 
             const Text(
-              'Student Name',
+              'Matrix Number',
               style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             const SizedBox(height: 4),

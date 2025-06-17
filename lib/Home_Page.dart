@@ -146,7 +146,7 @@ class _HomePageState extends State<HomePage> {
                         child: _buildResultCard(
                           result['result_id'].toString(),
                           result['student_id'].toString(),
-                          result['student_name'] ?? '',
+                          result['matrix_number'] ?? '',
                           result['timestamp']?.split('T')[0] ?? '',
                           result['score']?.toString() ?? '0',
                           result['class_name'] ?? '',

@@ -9,15 +9,15 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 class UpdateStudentPage extends StatefulWidget {
   final String studentId;
   final String selectedClass;
-  final String currentName;
   final String currentMatrix;
   final String currentPhone;
+  final String selectedClassId;
 
   const UpdateStudentPage({
     super.key,
     required this.studentId,
     required this.selectedClass,
-    required this.currentName,
+    required this.selectedClassId,
     required this.currentMatrix,
     required this.currentPhone,
   });
@@ -27,7 +27,6 @@ class UpdateStudentPage extends StatefulWidget {
 }
 
 class _UpdateStudentPageState extends State<UpdateStudentPage> {
-  late TextEditingController nameController;
   late TextEditingController matrixController;
   late TextEditingController phoneController;
   bool isLoading = false;
@@ -41,10 +40,10 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
   @override
   void initState() {
     super.initState();
-    nameController = TextEditingController(text: widget.currentName);
     matrixController = TextEditingController(text: widget.currentMatrix);
     phoneController = TextEditingController(text: widget.currentPhone);
     selectedClassName = widget.selectedClass;
+    selectedClassId = widget.selectedClassId;
     _loadLecturerId();
   }
 
@@ -70,17 +69,15 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
   }
 
   Future<void> _updateStudent() async {
-    final name = nameController.text.trim();
     final matrix = matrixController.text.trim();
     final phone = phoneController.text.trim();
 
-    if (name.isEmpty || matrix.isEmpty || phone.isEmpty) {
+    if (matrix.isEmpty || phone.isEmpty) {
       _showSnackBar('Please fill in all fields.');
       return;
     }
 
     final isUnchanged =
-        name == widget.currentName.trim() &&
         matrix == widget.currentMatrix.trim() &&
         phone == widget.currentPhone.trim() &&
         selectedClassName == widget.selectedClass;
@@ -93,12 +90,17 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
         return;
       }
 
+      print('selectedClassId: $selectedClassId');
+
       final body = {
-        'name': name,
+        'class_id': selectedClassId ?? widget.selectedClassId,
         'matrix': matrix,
         'phone': phone,
-        if (selectedClassId != null) 'class_id': selectedClassId,
       };
+
+      print(selectedClassId);
+      print(widget.studentId);
+      print('Sending PUT request body: ${jsonEncode(body)}'); // 👈 Debug print
 
       final response = await http.put(
         Uri.parse('${Env.baseUrl}/api_student/students/${widget.studentId}'),
@@ -112,7 +114,9 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
         _showSnackBar('Student updated successfully!');
         Navigator.pop(context, true);
       } else {
-        _showSnackBar(data['message'] ?? 'Failed to update student.');
+        _showSnackBar(
+          data['message'] ?? data['detail'] ?? 'Failed to update student.',
+        );
       }
     } catch (e) {
       _showSnackBar('Error: $e');
@@ -124,20 +128,26 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
   Future<void> _deleteStudent() async {
     final confirm = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Confirm Delete"),
-        content: const Text("Are you sure you want to delete this student?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Cancel"),
+      builder:
+          (context) => AlertDialog(
+            title: const Text("Confirm Delete"),
+            content: const Text(
+              "Are you sure you want to delete this student?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text("Cancel"),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  "Delete",
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Delete", style: TextStyle(color: Colors.red)),
-          ),
-        ],
-      ),
     );
 
     if (confirm != true) return;
@@ -165,12 +175,13 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   void dispose() {
-    nameController.dispose();
     matrixController.dispose();
     phoneController.dispose();
     super.dispose();
@@ -202,12 +213,18 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
         child: ListView(
           children: [
             const SizedBox(height: 10),
-            const Text('Class', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text(
+              'Class',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             const SizedBox(height: 4),
             InkWell(
               onTap: _showClassPicker,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade400),
                   borderRadius: BorderRadius.circular(10),
@@ -216,34 +233,35 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
               ),
             ),
             const SizedBox(height: 16),
-            const Text('Student Name', style: TextStyle(color: Colors.grey, fontSize: 12)),
-            const SizedBox(height: 4),
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(
-                hintText: 'Enter student name',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
-              ),
-            ),
             const SizedBox(height: 16),
-            const Text('Matrix Number', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text(
+              'Matrix Number',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             const SizedBox(height: 4),
             TextField(
               controller: matrixController,
               decoration: const InputDecoration(
                 hintText: 'Enter matrix number',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                ),
               ),
             ),
             const SizedBox(height: 16),
-            const Text('Phone No.', style: TextStyle(color: Colors.grey, fontSize: 12)),
+            const Text(
+              'Phone No.',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
             const SizedBox(height: 4),
             TextField(
               controller: phoneController,
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(
                 hintText: 'Enter phone number',
-                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(10)),
+                ),
               ),
             ),
             const SizedBox(height: 24),
@@ -251,7 +269,13 @@ class _UpdateStudentPageState extends State<UpdateStudentPage> {
             Center(
               child: TextButton(
                 onPressed: isLoading ? null : _deleteStudent,
-                child: const Text('Delete Student', style: TextStyle(color: Colors.red, fontWeight: FontWeight.w500)),
+                child: const Text(
+                  'Delete Student',
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 100),

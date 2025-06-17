@@ -23,9 +23,11 @@ class AddStudentPage extends StatefulWidget {
 class _AddStudentPageState extends State<AddStudentPage> {
   final _formKey = GlobalKey<FormState>();
 
-  late TextEditingController nameController;
   late TextEditingController matrixController;
   late TextEditingController phoneController;
+
+  final FocusNode matrixFocusNode = FocusNode();
+  final FocusNode phoneFocusNode = FocusNode();
 
   bool isLoading = false;
   String? errorMessage;
@@ -33,7 +35,6 @@ class _AddStudentPageState extends State<AddStudentPage> {
   @override
   void initState() {
     super.initState();
-    nameController = TextEditingController();
     matrixController = TextEditingController();
     phoneController = TextEditingController();
   }
@@ -55,24 +56,31 @@ class _AddStudentPageState extends State<AddStudentPage> {
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'class_id': widget.classId,
-          'name': nameController.text.trim(),
           'matrix': matrixController.text.trim(),
           'phone': phoneController.text.trim(),
         }),
       );
 
+      final data = jsonDecode(response.body);
+
       if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
         if (data['success'] == true) {
           Navigator.pop(context, true);
         } else {
           setState(() {
             errorMessage = data['message'] ?? 'Failed to add student.';
           });
+
+          if (data['message'] == 'Matrix number already exists') {
+            FocusScope.of(context).requestFocus(matrixFocusNode);
+          } else if (data['message'] == 'Phone number already exists') {
+            FocusScope.of(context).requestFocus(phoneFocusNode);
+          }
         }
       } else {
         setState(() {
-          errorMessage = 'Server error: ${response.statusCode}';
+          errorMessage =
+              data['detail'] ?? 'Server error: ${response.statusCode}';
         });
       }
     } catch (e) {
@@ -88,9 +96,10 @@ class _AddStudentPageState extends State<AddStudentPage> {
 
   @override
   void dispose() {
-    nameController.dispose();
     matrixController.dispose();
     phoneController.dispose();
+    matrixFocusNode.dispose(); // ✅ Dispose
+    phoneFocusNode.dispose();  // ✅ Dispose
     super.dispose();
   }
 
@@ -139,29 +148,6 @@ class _AddStudentPageState extends State<AddStudentPage> {
                 child: Text(widget.className),
               ),
               const SizedBox(height: 16),
-
-              const Text(
-                'Student Name',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
-              ),
-              const SizedBox(height: 4),
-              TextFormField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  hintText: 'Enter student name',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(10)),
-                  ),
-                ),
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter student name';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-
               const Text(
                 'Matrix Number',
                 style: TextStyle(color: Colors.grey, fontSize: 12),
@@ -169,6 +155,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
               const SizedBox(height: 4),
               TextFormField(
                 controller: matrixController,
+                focusNode: matrixFocusNode,
                 decoration: const InputDecoration(
                   hintText: 'Enter matrix number',
                   border: OutlineInputBorder(
@@ -191,6 +178,7 @@ class _AddStudentPageState extends State<AddStudentPage> {
               const SizedBox(height: 4),
               TextFormField(
                 controller: phoneController,
+                focusNode: phoneFocusNode,
                 keyboardType: TextInputType.phone,
                 decoration: const InputDecoration(
                   hintText: 'Enter phone number',

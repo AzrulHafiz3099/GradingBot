@@ -226,7 +226,7 @@ class _AnalyticsPageState extends State<AnalyticsPage>
                 children: [
                   pw.Expanded(
                     child: pw.Text(
-                      'Student Name',
+                      'Matrix Number',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
                         fontSize: 13,
@@ -248,7 +248,7 @@ class _AnalyticsPageState extends State<AnalyticsPage>
               ...students.map((student) {
                 return pw.Row(
                   children: [
-                    pw.Expanded(child: pw.Text(student['Student_Name'])),
+                    pw.Expanded(child: pw.Text(student['Matrix_Number'])),
                     pw.Text('${student['Score']}'),
                   ],
                 );

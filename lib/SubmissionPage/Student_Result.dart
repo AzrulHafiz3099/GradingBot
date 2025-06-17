@@ -285,7 +285,7 @@ class _StudentResultPageState extends State<StudentResultPage> {
               ),
               SizedBox(height: 16),
               Text(
-                'Student Name',
+                'Matrix Number',
                 style: TextStyle(color: Colors.grey, fontSize: 12),
               ),
               SizedBox(height: 4),
@@ -293,7 +293,7 @@ class _StudentResultPageState extends State<StudentResultPage> {
                 controller: _studentController,
                 readOnly: true,
                 decoration: InputDecoration(
-                  hintText: 'Enter student name',
+                  hintText: 'Enter matrix number',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.all(Radius.circular(10)),
                   ),

@@ -164,26 +164,18 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
               ],
             ),
             const SizedBox(height: 16),
-
             // Table header
             const Row(
               children: [
                 Expanded(
-                  flex: 4,
-                  child: Text(
-                    'Student Name',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
-                Expanded(
-                  flex: 3,
+                  flex: 5,
                   child: Text(
                     'Matrix No.',
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                 ),
                 Expanded(
-                  flex: 3,
+                  flex: 5,
                   child: Text(
                     'Phone No.',
                     style: TextStyle(fontWeight: FontWeight.bold),
@@ -217,7 +209,7 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                                       (context) => UpdateStudentPage(
                                         studentId: student['student_id'],
                                         selectedClass: selectedClassName,
-                                        currentName: student['name'],
+                                        selectedClassId: selectedClassId!,
                                         currentMatrix: student['matrix'],
                                         currentPhone: student['phone'],
                                       ),
@@ -232,15 +224,11 @@ class _StudentManagementPageState extends State<StudentManagementPage> {
                                 Row(
                                   children: [
                                     Expanded(
-                                      flex: 4,
-                                      child: Text(student['name'] ?? ''),
-                                    ),
-                                    Expanded(
-                                      flex: 3,
+                                      flex: 5,
                                       child: Text(student['matrix'] ?? ''),
                                     ),
                                     Expanded(
-                                      flex: 3,
+                                      flex: 5,
                                       child: Text(student['phone'] ?? ''),
                                     ),
                                   ],

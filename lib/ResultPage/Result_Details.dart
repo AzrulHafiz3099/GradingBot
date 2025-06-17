@@ -54,7 +54,7 @@ class _ResultDetailsPageState extends State<ResultDetailsPage> {
           ),
           pw.Divider(),
           pw.SizedBox(height: 10),
-          _buildPdfText('Student Name', studentResult?['student_name']),
+          _buildPdfText('Matrix Number', studentResult?['matrix_number']),
           _buildPdfText('Class', studentResult?['class_name']),
           _buildPdfText('Exam', studentResult?['exam_name']),
           _buildPdfText('Phone No.', studentResult?['phone_number']),
@@ -71,7 +71,7 @@ class _ResultDetailsPageState extends State<ResultDetailsPage> {
 
   await Printing.layoutPdf(
     onLayout: (PdfPageFormat format) async => pdf.save(),
-    name: 'Result_Summary_${studentResult?['student_name'] ?? 'Student'}.pdf',
+    name: 'Result_Summary_${studentResult?['matrix_number'] ?? 'Student'}.pdf',
   );
 }
 
@@ -187,7 +187,7 @@ pw.Widget _buildPdfText(String label, String? value) {
                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                     child: ListView(
                       children: [
-                        _buildTextField(label: 'Student Name', value: studentResult?['student_name'] ?? ''),
+                        _buildTextField(label: 'Matrix Number', value: studentResult?['matrix_number'] ?? ''),
                         _buildTextField(label: 'Class', value: studentResult?['class_name'] ?? ''),
                         _buildTextField(label: 'Exam', value: studentResult?['exam_name'] ?? ''),
                         _buildTextField(label: 'Phone No.', value: studentResult?['phone_number'] ?? ''),
