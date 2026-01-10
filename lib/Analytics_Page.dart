@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:percent_indicator/circular_percent_indicator.dart';
 import 'dart:math';
+import 'dart:async';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '/widget/class_picker.dart';
 import '/widget/exam_picker.dart';
@@ -11,6 +12,10 @@ import '/utils/env.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
+import '/utils/analytics_helper.dart';
+import '/utils/export_helper.dart';
+import '/utils/analytics_widgets.dart';
+import '/utils/cache_service.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
@@ -22,6 +27,7 @@ class AnalyticsPage extends StatefulWidget {
 class _AnalyticsPageState extends State<AnalyticsPage>
     with TickerProviderStateMixin {
   final secureStorage = const FlutterSecureStorage();
+  late CacheService cacheService;
 
   String selectedClassName = 'Choose Class';
   String selectedClassId = '';
@@ -38,10 +44,25 @@ class _AnalyticsPageState extends State<AnalyticsPage>
 
   late AnimationController _animationController;
   late Animation<double> _animation;
+  late Timer _autoRefreshTimer;
+
+  // New state variables
+  List<Map<String, dynamic>> allStudents = [];
+  List<Map<String, dynamic>> filteredStudents = [];
+  String searchQuery = '';
+  bool showHistogram = false;
+  String sortBy = 'score_desc'; // score_asc, score_desc, name_asc
+  
+  // Statistics
+  Map<String, dynamic> statistics = {};
+  Map<String, int> gradeDistribution = {};
+  List<Map<String, dynamic>> scoreDist = [];
+  double totalMarks = 0.0;
 
   @override
   void initState() {
     super.initState();
+    cacheService = CacheService();
     _loadLecturerId();
 
     _animationController = AnimationController(
@@ -53,15 +74,27 @@ class _AnalyticsPageState extends State<AnalyticsPage>
       parent: _animationController,
       curve: Curves.easeOut,
     );
+
+    // Auto-refresh every 5 minutes
+    _autoRefreshTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (selectedExamId.isNotEmpty) {
+        fetchCompletionAnalytics();
+        fetchScoreDistribution();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    _autoRefreshTimer.cancel();
+    super.dispose();
   }
 
   Future<void> _loadLecturerId() async {
     final id = await secureStorage.read(key: 'lecturer_id');
     setState(() => lecturerId = id);
   }
-
-  List<Map<String, dynamic>> scoreDist = [];
-  double totalMarks = 0;
 
   Future<void> fetchScoreDistribution() async {
     print('Fetching score distribution...');
@@ -79,193 +112,341 @@ class _AnalyticsPageState extends State<AnalyticsPage>
     print('Response body: ${resp.body}');
 
     if (resp.statusCode == 200) {
-      final d = jsonDecode(resp.body)['data'];
-      print('Parsed data: $d');
+      try {
+        final d = jsonDecode(resp.body)['data'];
+        print('Parsed data: $d');
 
-      setState(() {
-        totalMarks = (d['total_marks'] as num).toDouble(); // ✅ Safe cast
-        scoreDist = List<Map<String, dynamic>>.from(d['distribution']);
-      });
-      _animationController.reset();
-      _animationController.forward();
+        setState(() {
+          final marksValue = d['total_marks'];
+          totalMarks = marksValue is String ? double.tryParse(marksValue) ?? 0.0 : (marksValue as num).toDouble();
+          scoreDist = List<Map<String, dynamic>>.from(d['distribution']);
+          _updateStatistics();
+        });
+        _animationController.reset();
+        _animationController.forward();
 
-      print('Total Marks: $totalMarks');
-      print('Score Distribution: $scoreDist');
+        print('Total Marks: $totalMarks');
+        print('Score Distribution: $scoreDist');
+        print('✅ Score distribution loaded successfully');
+
+        // Cache the data - wrap in try-catch
+        try {
+          await cacheService.cacheScoreDistribution(selectedClassId, selectedExamId, scoreDist);
+          print('✅ Score distribution cached successfully');
+        } catch (cacheError) {
+          print('⚠️ Cache error (not critical): $cacheError');
+        }
+      } catch (parseError) {
+        print('❌ Error parsing score distribution: $parseError');
+        _showErrorSnackBar('Error parsing score distribution data');
+      }
     } else {
       print('Failed to fetch score distribution.');
+      _showErrorSnackBar('Failed to fetch score distribution');
+    }
+  }
+
+  void _updateStatistics() {
+    if (scoreDist.isNotEmpty && totalMarks > 0) {
+      statistics = AnalyticsHelper.getStatistics(scoreDist, totalMarks);
+      gradeDistribution = AnalyticsHelper.getGradeDistribution(scoreDist, totalMarks);
+    }
+  }
+
+  void _filterStudents() {
+    filteredStudents = allStudents.where((student) {
+      final matrixNum = student['Matrix_Number'].toString().toLowerCase();
+      final matchesSearch = matrixNum.contains(searchQuery.toLowerCase());
+      return matchesSearch;
+    }).toList();
+
+    // Sort
+    switch (sortBy) {
+      case 'score_asc':
+        filteredStudents.sort((a, b) {
+          final aScorePart = a['Score'].toString().split('/')[0];
+          final bScorePart = b['Score'].toString().split('/')[0];
+          final aScore = double.tryParse(aScorePart.trim()) ?? 0.0;
+          final bScore = double.tryParse(bScorePart.trim()) ?? 0.0;
+          return aScore.compareTo(bScore);
+        });
+        break;
+      case 'score_desc':
+        filteredStudents.sort((a, b) {
+          final aScorePart = a['Score'].toString().split('/')[0];
+          final bScorePart = b['Score'].toString().split('/')[0];
+          final aScore = double.tryParse(aScorePart.trim()) ?? 0.0;
+          final bScore = double.tryParse(bScorePart.trim()) ?? 0.0;
+          return bScore.compareTo(aScore);
+        });
+        break;
+      case 'name_asc':
+        filteredStudents.sort((a, b) => a['Matrix_Number'].compareTo(b['Matrix_Number']));
+        break;
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        action: SnackBarAction(
+          label: 'Retry',
+          onPressed: () {
+            if (selectedExamId.isNotEmpty) {
+              fetchCompletionAnalytics();
+              fetchScoreDistribution();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _loadStudentData() async {
+    if (selectedClassId.isEmpty || selectedExamId.isEmpty) return;
+
+    try {
+      final resp = await http.get(
+        Uri.parse(
+          '${Env.baseUrl}/api_analytics/exam_summary?class_id=$selectedClassId&exam_id=$selectedExamId',
+        ),
+      );
+
+      if (resp.statusCode == 200) {
+        final summary = jsonDecode(resp.body);
+        final students = List<Map<String, dynamic>>.from(summary['students']);
+
+        print('DEBUG: Students data: $students');
+        if (students.isNotEmpty) {
+          print('DEBUG: First student: ${students[0]}');
+          print('DEBUG: Available keys: ${students[0].keys.toList()}');
+        }
+
+        // Update state with students
+        setState(() {
+          allStudents = students;
+          _filterStudents();
+        });
+      }
+    } catch (e) {
+      print('Error loading student data: $e');
     }
   }
 
   Future<void> fetchExamSummary() async {
     if (selectedClassId.isEmpty || selectedExamId.isEmpty) return;
 
-    final resp = await http.get(
-      Uri.parse(
-        '${Env.baseUrl}/api_analytics/exam_summary?class_id=$selectedClassId&exam_id=$selectedExamId',
-      ),
-    );
+    setState(() => isLoading = true);
 
-    if (resp.statusCode == 200) {
-      final summary = jsonDecode(resp.body);
-      final className = summary['class_name'];
-      final examName = summary['exam_name'];
-      final students = List<Map<String, dynamic>>.from(summary['students']);
-
-      // Generate PDF
-      final pdf = pw.Document();
-
-      final imageLogo = pw.MemoryImage(
-        (await rootBundle.load('assets/logo.png')).buffer.asUint8List(),
+    try {
+      final resp = await http.get(
+        Uri.parse(
+          '${Env.baseUrl}/api_analytics/exam_summary?class_id=$selectedClassId&exam_id=$selectedExamId',
+        ),
       );
 
-      pdf.addPage(
-        pw.MultiPage(
-          pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            return [
-              pw.Row(
-                crossAxisAlignment: pw.CrossAxisAlignment.center,
-                children: [
-                  pw.Text('Exam Summary', style: pw.TextStyle(fontSize: 20)),
-                  pw.Spacer(),
-                  pw.Image(imageLogo, height: 60, width: 60),
-                ],
-              ),
-              pw.Divider(thickness: 1),
-              pw.SizedBox(height: 16),
-              pw.RichText(
-                text: pw.TextSpan(
+      if (resp.statusCode == 200) {
+        final summary = jsonDecode(resp.body);
+        final className = summary['class_name'];
+        final examName = summary['exam_name'];
+        final students = List<Map<String, dynamic>>.from(summary['students']);
+
+        print('DEBUG: Students data: $students');
+        if (students.isNotEmpty) {
+          print('DEBUG: First student: ${students[0]}');
+          print('DEBUG: Available keys: ${students[0].keys.toList()}');
+          students[0].forEach((key, value) {
+            print('DEBUG: $key = $value (type: ${value.runtimeType})');
+          });
+        }
+
+        // Update state with students
+        setState(() {
+          allStudents = students;
+          _filterStudents();
+        });
+
+        // Generate PDF
+        final pdf = pw.Document();
+
+        final imageLogo = pw.MemoryImage(
+          (await rootBundle.load('assets/logo.png')).buffer.asUint8List(),
+        );
+
+        pdf.addPage(
+          pw.MultiPage(
+            pageFormat: PdfPageFormat.a4,
+            build: (pw.Context context) {
+              return [
+                pw.Row(
+                  crossAxisAlignment: pw.CrossAxisAlignment.center,
                   children: [
-                    pw.TextSpan(
-                      text: 'Class Name: ',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.TextSpan(
-                      text: className,
-                      style: pw.TextStyle(fontSize: 14),
-                    ),
+                    pw.Text('Exam Summary', style: pw.TextStyle(fontSize: 20)),
+                    pw.Spacer(),
+                    pw.Image(imageLogo, height: 60, width: 60),
                   ],
                 ),
-              ),
-              pw.RichText(
-                text: pw.TextSpan(
+                pw.Divider(thickness: 1),
+                pw.SizedBox(height: 16),
+                pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: 'Class Name: ',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.TextSpan(
+                        text: className,
+                        style: pw.TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: 'Class Code: ',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.TextSpan(
+                        text: selectedClassName,
+                        style: pw.TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 4),
+                pw.RichText(
+                  text: pw.TextSpan(
+                    children: [
+                      pw.TextSpan(
+                        text: 'Exam Name: ',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.TextSpan(
+                        text: examName,
+                        style: pw.TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+
+                pw.Text(
+                  'Completion Summary:',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.Text(
+                  'Completed: $studentsTaken / $totalStudents students '
+                  '(${(completionPercentage * 100).toStringAsFixed(0)}%)',
+                ),
+                pw.SizedBox(height: 12),
+
+                pw.Text(
+                  'Score Distribution:',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                ...scoreDist.map((entry) {
+                  return pw.Text(
+                    '${entry['score']} = ${entry['count']} student(s)',
+                  );
+                }),
+
+                pw.SizedBox(height: 20),
+                pw.Text(
+                  'Student Scores:',
+                  style: pw.TextStyle(
+                    fontSize: 14,
+                    fontWeight: pw.FontWeight.bold,
+                  ),
+                ),
+                pw.SizedBox(height: 12),
+                pw.Row(
                   children: [
-                    pw.TextSpan(
-                      text: 'Class Code: ',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
+                    pw.Expanded(
+                      child: pw.Text(
+                        'Matrix Number',
+                        style: pw.TextStyle(
+                          fontWeight: pw.FontWeight.bold,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
-                    pw.TextSpan(
-                      text: selectedClassName,
-                      style: pw.TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 4),
-              pw.RichText(
-                text: pw.TextSpan(
-                  children: [
-                    pw.TextSpan(
-                      text: 'Exam Name: ',
-                      style: pw.TextStyle(
-                        fontSize: 14,
-                        fontWeight: pw.FontWeight.bold,
-                      ),
-                    ),
-                    pw.TextSpan(
-                      text: examName,
-                      style: pw.TextStyle(fontSize: 14),
-                    ),
-                  ],
-                ),
-              ),
-              pw.SizedBox(height: 12),
-
-              pw.Text(
-                'Completion Summary:',
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Text(
-                'Completed: $studentsTaken / $totalStudents students '
-                '(${(completionPercentage * 100).toStringAsFixed(0)}%)',
-              ),
-              pw.SizedBox(height: 12),
-
-              pw.Text(
-                'Score Distribution:',
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              ...scoreDist.map((entry) {
-                return pw.Text(
-                  '${entry['score']} = ${entry['count']} student(s)',
-                );
-              }),
-
-              pw.SizedBox(height: 20),
-              pw.Text(
-                'Student Scores:',
-                style: pw.TextStyle(
-                  fontSize: 14,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.SizedBox(height: 12),
-              pw.Row(
-                children: [
-                  pw.Expanded(
-                    child: pw.Text(
-                      'Matrix Number',
+                    pw.Text(
+                      'Score',
                       style: pw.TextStyle(
                         fontWeight: pw.FontWeight.bold,
                         fontSize: 13,
                       ),
                     ),
-                  ),
-                  pw.Text(
-                    'Score',
-                    style: pw.TextStyle(
-                      fontWeight: pw.FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-              pw.Divider(),
-
-              // List of student rows
-              ...students.map((student) {
-                return pw.Row(
-                  children: [
-                    pw.Expanded(child: pw.Text(student['Matrix_Number'])),
-                    pw.Text('${student['Score']}'),
                   ],
-                );
-              }).toList(),
-            ];
-          },
-        ),
-      );
+                ),
+                pw.Divider(),
 
-      // Let user download or share
-      await Printing.layoutPdf(
-        onLayout: (PdfPageFormat format) async => pdf.save(),
-        name: 'Exam_Summary_$examName.pdf',
-      );
-    } else {
-      print('Failed to fetch exam summary.');
+                // List of student rows
+                ...students.map((student) {
+                  return pw.Row(
+                    children: [
+                      pw.Expanded(child: pw.Text(student['Matrix_Number'])),
+                      pw.Text('${student['Score']}'),
+                    ],
+                  );
+                }).toList(),
+              ];
+            },
+          ),
+        );
+
+        // Let user download or share
+        await Printing.layoutPdf(
+          onLayout: (PdfPageFormat format) async => pdf.save(),
+          name: 'Exam_Summary_$examName.pdf',
+        );
+      } else {
+        print('Failed to fetch exam summary.');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Failed to fetch exam summary')),
+          );
+        }
+      }
+    } catch (e) {
+      print('Error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      setState(() => isLoading = false);
     }
+  }
+
+  void _showSuccessSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   Future<void> fetchCompletionAnalytics() async {
@@ -281,14 +462,16 @@ class _AnalyticsPageState extends State<AnalyticsPage>
         headers: {'Content-Type': 'application/json'},
       );
 
+      print('Response status: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         print('Completion analytics data: $data');
         final analyticsData = data['data'] ?? {};
         final taken = analyticsData['students_completed'] ?? 0;
         final total = analyticsData['total_students'] ?? 0;
-        final percent =
-            (analyticsData['completion_percentage'] ?? 0.0).toDouble();
+        final percent = (analyticsData['completion_percentage'] ?? 0.0).toDouble();
 
         setState(() {
           studentsTaken = taken;
@@ -296,15 +479,28 @@ class _AnalyticsPageState extends State<AnalyticsPage>
           completionPercentage = percent;
         });
 
-        print("completionPercentage: $completionPercentage");
+        print("✅ Completion Loaded - Students: $studentsTaken / $totalStudents (${(percent * 100).toStringAsFixed(2)}%)");
+
+        // Cache it - wrap in try-catch to not break the whole function
+        try {
+          await cacheService.cacheCompletionAnalytics(
+            selectedClassId,
+            selectedExamId,
+            analyticsData,
+          );
+          print('✅ Completion data cached successfully');
+        } catch (cacheError) {
+          print('⚠️ Cache error (not critical): $cacheError');
+        }
       } else {
-        throw Exception('Failed to fetch analytics');
+        print('❌ Failed to fetch analytics. Status: ${response.statusCode}');
+        throw Exception('Failed to fetch analytics: ${response.statusCode}');
       }
     } catch (e) {
-      print('Error: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error loading completion data')),
-      );
+      print('❌ Error in fetchCompletionAnalytics: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error loading completion data: $e');
+      }
     } finally {
       setState(() => isLoading = false);
     }
@@ -321,14 +517,17 @@ class _AnalyticsPageState extends State<AnalyticsPage>
         setState(() {
           selectedClassName = className;
           selectedClassId = classId;
-          selectedExamName = 'Choose Exam'; // Reset exam
+          selectedExamName = 'Choose Exam';
           selectedExamId = '';
-          // Reset analytics
           completionPercentage = 0.0;
           studentsTaken = 0;
           totalStudents = 0;
           scoreDist = [];
           totalMarks = 0.0;
+          statistics = {};
+          gradeDistribution = {};
+          allStudents = [];
+          filteredStudents = [];
         });
       },
     );
@@ -353,154 +552,448 @@ class _AnalyticsPageState extends State<AnalyticsPage>
         });
         fetchCompletionAnalytics();
         fetchScoreDistribution();
-        // _buildScoreChart(totalMarks, scoreDist);
+        _loadStudentData(); // Load student data with scores
       },
     );
   }
 
+  void _onRefresh() {
+    if (selectedExamId.isNotEmpty) {
+      fetchCompletionAnalytics();
+      fetchScoreDistribution();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final totalScore = data.reduce((a, b) => a + b);
-    final double percentage = totalScore / total;
-    // final double completionPercentage = 0.68;
-
     return Scaffold(
       backgroundColor: Colors.white,
-      body: Column(
-        children: [
-          // Header with pickers
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(20, 55, 20, 20),
-            color: Colors.blue,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Analytics Page',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
+      body: RefreshIndicator(
+        onRefresh: () async => _onRefresh(),
+        child: Column(
+          children: [
+            // Header with pickers
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(20, 55, 20, 20),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade600, Colors.blue.shade800],
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Analytics Dashboard',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                const Text(
-                  'Select Class & Exam',
-                  style: TextStyle(fontSize: 14, color: Colors.white70),
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _buildStyledPickerBox(
-                      label: selectedClassName,
-                      onTap: _showClassPicker,
+                  const SizedBox(height: 8),
+                  Text(
+                    'Track exam performance & analytics',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withOpacity(0.8),
                     ),
-                    const SizedBox(width: 12),
-                    _buildStyledPickerBox(
-                      label: selectedExamName,
-                      onTap: _showExamPicker,
-                    ),
-                  ],
-                ),
-              ],
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      _buildStyledPickerBox(
+                        label: selectedClassName,
+                        onTap: _showClassPicker,
+                      ),
+                      const SizedBox(width: 12),
+                      _buildStyledPickerBox(
+                        label: selectedExamName,
+                        onTap: _showExamPicker,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
 
-          // Analytics content
-          Expanded(
-            child: Container(
-              color: Colors.white,
+            // Analytics content
+            Expanded(
               child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Column(
                   children: [
                     const SizedBox(height: 16),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[100],
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
+
+                    // Completion Card
+                    if (selectedExamId.isNotEmpty) ...[
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              Colors.blue.shade400,
+                              Colors.blue.shade600,
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
                         child: Row(
                           children: [
                             CircularPercentIndicator(
-                              radius: 30.0,
-                              lineWidth: 6.0,
+                              radius: 45.0,
+                              lineWidth: 8.0,
                               percent: completionPercentage.clamp(0.0, 1.0),
-                              center: Text(
-                                isLoading
-                                    ? "..."
-                                    : "${(completionPercentage * 100).toStringAsFixed(0)}%",
+                              center: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    isLoading
+                                        ? "..."
+                                        : "${(completionPercentage * 100).toStringAsFixed(0)}%",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const Text(
+                                    'Complete',
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ],
                               ),
-                              progressColor: Colors.blue,
-                              backgroundColor: Colors.white,
+                              progressColor: Colors.white,
+                              backgroundColor: Colors.white.withOpacity(0.2),
                               circularStrokeCap: CircularStrokeCap.round,
                               animation: true,
                               animationDuration: 1000,
                             ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Completion',
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                Text('$selectedExamName | $selectedClassName'),
-                              ],
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Exam Completion',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '$studentsTaken / $totalStudents students',
+                                    style: const TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    selectedExamName,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      selectedExamName.toUpperCase(),
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    _buildScoreChart(totalMarks, scoreDist),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 48,
-                      child: ElevatedButton(
-                        onPressed:
-                            (isLoading || selectedExamId.isEmpty)
-                                ? null
-                                : fetchExamSummary,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                      const SizedBox(height: 24),
+
+                      // Statistics Cards
+                      if (statistics.isNotEmpty) ...[
+                        Text(
+                          'Score Statistics',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade800,
                           ),
                         ),
-                        child:
-                            isLoading
-                                ? const CircularProgressIndicator(
-                                  color: Colors.white,
-                                )
-                                : const Text(
-                                  'Download Exam Summary',
-                                  style: TextStyle(color: Colors.white),
-                                ),
+                        const SizedBox(height: 12),
+                        GridView.count(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          children: [
+                            StatisticsCard(
+                              label: 'Average Score',
+                              value: (statistics['average'] ?? 0).toStringAsFixed(1),
+                              icon: Icons.trending_up,
+                              color: Colors.green,
+                            ),
+                            StatisticsCard(
+                              label: 'Median Score',
+                              value: (statistics['median'] ?? 0).toStringAsFixed(1),
+                              icon: Icons.equalizer,
+                              color: Colors.orange,
+                            ),
+                            StatisticsCard(
+                              label: 'Std Deviation',
+                              value: (statistics['stdDev'] ?? 0).toStringAsFixed(2),
+                              icon: Icons.show_chart,
+                              color: Colors.purple,
+                            ),
+                            StatisticsCard(
+                              label: 'Max Score',
+                              value: totalMarks.toStringAsFixed(1),
+                              icon: Icons.star,
+                              color: Colors.amber,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+                      ],
+
+                      // Score Chart Toggle
+                      Text(
+                        'Score Distribution',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 20),
+                      const SizedBox(height: 12),
+                      Center(
+                        child: SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment<bool>(
+                              value: false,
+                              label: Text('Pie Chart'),
+                              icon: Icon(Icons.pie_chart),
+                            ),
+                            ButtonSegment<bool>(
+                              value: true,
+                              label: Text('Histogram'),
+                              icon: Icon(Icons.bar_chart),
+                            ),
+                          ],
+                          selected: <bool>{showHistogram},
+                          onSelectionChanged: (Set<bool> newSelection) {
+                            setState(() {
+                              showHistogram = newSelection.first;
+                            });
+                          },
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+
+                      if (showHistogram && scoreDist.isNotEmpty)
+                        HistogramChart(
+                          distribution: scoreDist,
+                          maxScore: totalMarks,
+                        )
+                      else if (scoreDist.isNotEmpty)
+                        _buildScoreChart(totalMarks, scoreDist)
+                      else
+                        const Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Text('No distribution data available'),
+                        ),
+
+                      const SizedBox(height: 24),
+
+                      // Student List Section
+                      if (allStudents.isNotEmpty) ...[
+                        const Divider(),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Student Results',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Search Bar
+                        StudentSearchBar(
+                          onSearchChanged: (query) {
+                            setState(() {
+                              searchQuery = query;
+                              _filterStudents();
+                            });
+                          },
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Sort Dropdown
+                        Row(
+                          children: [
+                            const Text(
+                              'Sort by:',
+                              style: TextStyle(fontWeight: FontWeight.w500),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: DropdownButton<String>(
+                                value: sortBy,
+                                isExpanded: true,
+                                items: [
+                                  'score_desc',
+                                  'score_asc',
+                                  'name_asc',
+                                ]
+                                    .map((e) => DropdownMenuItem(
+                                          value: e,
+                                          child: Text(e == 'score_desc'
+                                              ? 'Highest Score'
+                                              : e == 'score_asc'
+                                                  ? 'Lowest Score'
+                                                  : 'Matrix Number'),
+                                        ))
+                                    .toList(),
+                                onChanged: (value) {
+                                  setState(() {
+                                    sortBy = value ?? 'score_desc';
+                                    _filterStudents();
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Student List
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: filteredStudents.length,
+                          itemBuilder: (context, index) {
+                            final student = filteredStudents[index];
+                            // Score is in format "1.0/2.0", extract just the score part
+                            final scoreStr = student['Score'].toString();
+                            final scoreParts = scoreStr.contains('/') 
+                              ? scoreStr.split('/')[0] 
+                              : scoreStr;
+                            final score = double.tryParse(scoreParts.trim()) ?? 0.0;
+
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              child: ListTile(
+                                title: Text(
+                                  student['Matrix_Number'] ?? 'Unknown',
+                                  style: const TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                trailing: Text(
+                                  student['Score'].toString(),
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade600,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+
+                        if (filteredStudents.isEmpty && searchQuery.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.all(32),
+                            child: Text(
+                              'No students found matching "$searchQuery"',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          ),
+                      ],
+
+                      const SizedBox(height: 24),
+
+                      // Export Buttons
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: fetchExamSummary,
+                              icon: const Icon(Icons.download),
+                              label: const Text('Export Data'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed: (isLoading || selectedExamId.isEmpty) ? null : _onRefresh,
+                              icon: const Icon(Icons.refresh),
+                              label: const Text('Refresh'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 20),
+                    ] else
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Column(
+                          children: [
+                            Icon(Icons.analytics, size: 64, color: Colors.grey.shade300),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Select a class and exam to view analytics',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
+  }
+
+  Color _getGradeColor(String grade) {
+    switch (grade) {
+      case 'A':
+        return Colors.green;
+      case 'B':
+        return Colors.blue;
+      case 'C':
+        return Colors.orange;
+      case 'D':
+        return Colors.red.shade400;
+      case 'F':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildStyledPickerBox({
