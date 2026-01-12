@@ -151,6 +151,12 @@ class _AddExamPageState extends State<AddExamPage> {
   }
 
   Future<void> _pickExamFile() async {
+    // Validate exam name before allowing file selection
+    if (_examNameController.text.trim().isEmpty) {
+      _showSnackBar('Please enter exam name first');
+      return;
+    }
+
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'docx', 'jpg', 'png'],
@@ -215,9 +221,10 @@ class _AddExamPageState extends State<AddExamPage> {
         padding: const EdgeInsets.all(20),
         child: Form(
           key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
               const Text('Exam Name'),
               const SizedBox(height: 8),
               TextFormField(
@@ -418,7 +425,7 @@ class _AddExamPageState extends State<AddExamPage> {
                     style: const TextStyle(color: Colors.red),
                   ),
                 ),
-              const Spacer(),
+              const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 height: 45,
@@ -451,7 +458,8 @@ class _AddExamPageState extends State<AddExamPage> {
                           ),
                 ),
               ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
