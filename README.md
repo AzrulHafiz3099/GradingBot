@@ -1,10 +1,10 @@
-# grading_bot
+# Grading Bot
 
 Grading Bot is a mobile application developed using Flutter that automates the grading of handwritten examination scripts. The system leverages OCR technology, keyword-based marking schemes, and a FastAPI backend to assist lecturers in grading, managing examinations, and analyzing student performance efficiently and consistently.
 
 This project was developed as part of a Final Year Project (FYP/PSM) and focuses on reducing manual grading workload while improving accuracy, fairness, and data management in academic assessment.
 
-Features
+## Features
 
 -Lecturer authentication (sign up, login, OTP verification)
 
@@ -18,7 +18,7 @@ Features
 
 -Result generation and performance analytics
 
-Tech Stack
+## Tech Stack
 
 -Frontend: Flutter
 
@@ -35,11 +35,11 @@ cd grading_bot
 flutter pub get
 flutter run
 
-Limitations
+## Limitations
 -OCR accuracy depends on handwriting quality
 -Manual review required for borderline grading cases
 
-Author
+## Author
 
 Azrul Hafiz Abdullah
 Final Year Project (PSM)
